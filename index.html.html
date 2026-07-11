@@ -461,38 +461,33 @@ async function kvUpdate(key, fallback, mutator){
   await kvSet(key, next);
   return next;
 }
-async function kvRootTransaction(mutator){
+async function kvLeafTransaction(key, fallback, mutator){
+  // Transacts on ONE child path only (e.g. DB_ROOT/resources), not the whole
+  // database root. The whole-root approach was unreliable: nothing else in
+  // the app ever reads the root as a single value, so Firebase's transaction()
+  // would sometimes hand the update function `null` on its very first call
+  // (even though real data existed on the server) and our code would treat
+  // that as "not found" and abort for good, since our own logic returned
+  // `undefined`/null to cancel rather than letting Firebase retry. Scoping the
+  // transaction to a single, frequently-read leaf path avoids that entirely.
   if(!fbReady) return {committed:false};
   try{
-    const ref = fbDb.ref(DB_ROOT);
-    // Firebase's transaction() gives your update function whatever it has
-    // *locally cached* for this exact path. Since the rest of the app only
-    // ever reads individual child paths (DB_ROOT/patients, DB_ROOT/resources,
-    // ...), the SDK may never have cached the ROOT path itself — so the very
-    // first transaction on it can be handed `null` even though real data
-    // exists on the server, causing false "ไม่พบผู้ป่วย"/etc. aborts.
-    // Force a fresh read of the exact same path first so the transaction's
-    // update function always starts from real data.
-    await ref.once('value');
-    const result = await ref.transaction(function(root){
-      root = root || {};
-      const decoded = {};
-      Object.keys(root).forEach(function(k){
-        const v=root[k];
-        try{ decoded[k]=typeof v==='string'?JSON.parse(v):v; }catch(e){ decoded[k]=v; }
-      });
-      const next = mutator(decoded);
-      if(next==null) return;
-      const encoded = {};
-      Object.keys(next).forEach(function(k){ encoded[k]=JSON.stringify(next[k]); });
-      return encoded;
+    const ref = fbDb.ref(DB_ROOT+'/'+key);
+    await ref.once('value'); // warm the local cache for this exact path first
+    const result = await ref.transaction(function(raw){
+      let cur;
+      try{ cur = raw==null ? fallback : (typeof raw==='string' ? JSON.parse(raw) : raw); }
+      catch(e){ cur = fallback; }
+      const next = mutator(cur);
+      if(next===undefined) return; // abort, no change
+      return JSON.stringify(next);
     });
     STATE.fbConnected=true;
     return {committed:result.committed, snapshot:result.snapshot};
   }catch(e){
-    console.error('kvRootTransaction failed',e);
+    console.error('kvLeafTransaction failed', key, e);
     STATE.fbConnected=false; STATE.fbErrorMsg=(e&&e.message)||String(e);
-    return {committed:false,error:e};
+    return {committed:false, error:e};
   }
 }
 async function fbSelfTest(){
@@ -892,7 +887,7 @@ async function primaryRegister(idRaw){
   if(!caseObj){ toast('ไม่พบ Patient_ID นี้ใน Case pool: '+id,'err'); return; }
   const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    if(patients.some(function(p){ return normU(p.id)===normU(id); })){ toast('Patient_ID นี้ถูกใช้ไปแล้ว: '+id,'err'); return null; }
+    if(patients.some(function(p){ return p.id===id; })){ toast('Patient_ID นี้ถูกใช้ไปแล้ว: '+id,'err'); return null; }
     const p = {
       id:id, stage:'PRIMARY', canWalk:caseObj.canWalk,
       primary:null, primaryTime:null, primaryOrder:null, primaryDest:null,
@@ -907,7 +902,7 @@ async function primaryRegister(idRaw){
 }
 async function primarySetField(id, field, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){ return normU(p.id)===normU(id) ? Object.assign({}, p, mkPatch(field,value)) : p; });
+    return patients.map(function(p){ return p.id===id ? Object.assign({}, p, mkPatch(field,value)) : p; });
   });
 }
 function mkPatch(field,value){ const o={}; o[field]=value; return o; }
@@ -915,7 +910,7 @@ function mkPatch(field,value){ const o={}; o[field]=value; return o; }
 async function primarySend(id, dest){
   const elapsed = elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);}); if(idx<0)return null;
+    const idx=patients.findIndex(function(p){return p.id===id;}); if(idx<0)return null;
     const p=patients[idx];
     if(patientIsDead(p,elapsed)){ toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างที่ Primary Triage','err'); return null; }
     if(!p.primary){ toast('ต้องเลือก Primary Triage ก่อน','err'); return null; }
@@ -931,13 +926,13 @@ async function primarySend(id, dest){
 ============================================================ */
 async function secondarySetField(id, field, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){ return normU(p.id)===normU(id) ? Object.assign({}, p, mkPatch(field,value)) : p; });
+    return patients.map(function(p){ return p.id===id ? Object.assign({}, p, mkPatch(field,value)) : p; });
   });
 }
 async function secondarySend(id, dest){
   const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);});if(idx<0)return null;
+    const idx=patients.findIndex(function(p){return p.id===id;});if(idx<0)return null;
     const p=patients[idx];
     if(patientIsDead(p,elapsed)){toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างที่ Secondary Triage','err');return null;}
     if(!p.secondary){toast('ต้องเลือก Secondary Triage ก่อน','err');return null;}
@@ -952,124 +947,77 @@ async function secondarySend(id, dest){
 /* ============================================================
    11) TREATMENT ACTIONS
 ============================================================ */
-async function reserveResourceItem(item){
-  if(!fbReady) return {ok:false, reason:'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'};
-  try{
-    const ref=fbDb.ref(DB_ROOT+'/'+KEYS.resources);
-    let durationSec=5;
-    let fail='';
-    const result=await ref.transaction(function(raw){
-      let list;
-      try{ list=typeof raw==='string'?JSON.parse(raw):raw; }
-      catch(e){ list=null; }
-      if(!Array.isArray(list)){ fail='โหลดข้อมูลทรัพยากรไม่สำเร็จ'; return; }
-      const ri=list.findIndex(function(r){return r.item===item;});
-      if(ri<0){ fail='ไม่พบทรัพยากร '+item; return; }
-      if(Number(list[ri].stock)<=0){ fail=item+' หมด กรุณาขอ GM เพิ่ม'; return; }
-      durationSec=Number(list[ri].durationSec)||5;
-      const next=list.slice();
-      next[ri]=Object.assign({},list[ri],{stock:Number(list[ri].stock)-1});
-      return JSON.stringify(next);
-    });
-    if(!result.committed) return {ok:false,reason:fail||'ไม่สามารถจองทรัพยากรได้'};
-    const raw=result.snapshot.val();
-    const list=typeof raw==='string'?JSON.parse(raw):raw;
-    const resource=(list||[]).find(function(r){return r.item===item;});
-    return {ok:true,durationSec:durationSec,stock:resource?Number(resource.stock):null};
-  }catch(e){
-    console.error('reserveResourceItem failed',e);
-    return {ok:false,reason:(e&&e.message)||'เกิดข้อผิดพลาดในการจองทรัพยากร'};
-  }
-}
-
-async function refundResourceItem(item){
-  if(!fbReady) return;
-  try{
-    const ref=fbDb.ref(DB_ROOT+'/'+KEYS.resources);
-    await ref.transaction(function(raw){
-      let list;
-      try{ list=typeof raw==='string'?JSON.parse(raw):raw; }
-      catch(e){ return; }
-      if(!Array.isArray(list)) return;
-      const ri=list.findIndex(function(r){return r.item===item;});
-      if(ri<0) return;
-      const next=list.slice();
-      next[ri]=Object.assign({},list[ri],{stock:Number(list[ri].stock||0)+1});
-      return JSON.stringify(next);
-    });
-  }catch(e){ console.error('refundResourceItem failed',e); }
-}
-
 async function txStartItem(id, slotIndex, item){
   if(!item) return;
-  id=normU(id);
-  slotIndex=Number(slotIndex);
   const elapsed=elapsedMinutes(STATE.gc);
 
-  // อ่านผู้ป่วยจาก child path โดยตรง เพื่อไม่ให้ root transaction เห็นข้อมูลว่าง
-  const patients=await kvGet(KEYS.patients,[]);
-  const idx=patients.findIndex(function(p){return normU(p.id)===id;});
-  if(idx<0){ toast('ไม่พบผู้ป่วย #'+id,'err'); return; }
+  // Validate against a fresh read of patients — the same simple, proven
+  // pattern every other station action in this app already uses.
+  const patients = await kvGet(KEYS.patients, []);
+  const idx = patients.findIndex(function(p){ return p.id===id; });
+  if(idx<0){ toast('ไม่พบผู้ป่วย','err'); return; }
+  const p = patients[idx], caseObj = findCase(STATE.cases, id);
+  if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){ toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment','err'); return; }
+  if(!canStartSequential(p,slotIndex,elapsed)){ toast('ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน','err'); return; }
+  if(hasAnyTxInProgress(p,elapsed)){ toast('มี Treatment กำลังดำเนินการอยู่','err'); return; }
+  const capacity = treatmentStaffCount(p.txZone);
+  const inProgress = countZoneInProgress(patients, p.txZone, elapsed);
+  if(capacity<=0 || inProgress>=capacity){ toast('ไม่มี Staff ว่างในโซน '+p.txZone,'err'); return; }
 
-  const p=patients[idx];
-  const caseObj=findCase(STATE.cases,id);
-  if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){
-    toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment','err'); return;
-  }
-  if(!canStartSequential(p,slotIndex,elapsed)){
-    toast('ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน','err'); return;
-  }
-  if(hasAnyTxInProgress(p,elapsed)){
-    toast('มี Treatment กำลังดำเนินการอยู่','err'); return;
-  }
-  const capacity=treatmentStaffCount(p.txZone);
-  const inProgress=countZoneInProgress(patients,p.txZone,elapsed);
-  if(capacity<=0||inProgress>=capacity){
-    toast('ไม่มี Staff ว่างในโซน '+p.txZone,'err'); return;
-  }
-
-  // กัน stock ติดลบด้วย transaction เฉพาะ resources path
-  const reserved=await reserveResourceItem(item);
-  if(!reserved.ok){ toast(reserved.reason,'err'); return; }
-
-  // อ่าน patients ล่าสุดอีกครั้งก่อนบันทึก เพื่อไม่ทับการแก้ไขจากเครื่องอื่น
-  const latest=await kvGet(KEYS.patients,[]);
-  const latestIdx=latest.findIndex(function(x){return normU(x.id)===id;});
-  if(latestIdx<0){
-    await refundResourceItem(item);
-    toast('ไม่พบผู้ป่วยหลังอัปเดตข้อมูล จึงคืน stock แล้ว','err');
-    return;
-  }
-  const lp=latest[latestIdx];
-  if(computeTxStatus(lp,findCase(STATE.cases,id),elapsed)==='DEAD' || hasAnyTxInProgress(lp,elapsed)){
-    await refundResourceItem(item);
-    toast('สถานะผู้ป่วยเปลี่ยนไป จึงยกเลิกและคืน stock แล้ว','err');
-    return;
-  }
-
-  const tx=(lp.tx||[null,null,null]).slice();
-  tx[slotIndex]={item:item,startedAt:elapsed,durationSec:reserved.durationSec};
-  latest[latestIdx]=Object.assign({},lp,{
-    tx:tx,
-    txStartTime:lp.txStartTime==null?elapsed:lp.txStartTime,
-    events:(lp.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])
+  // Only the stock decrement needs true atomicity (so two people clicking at
+  // the exact same instant can't both take the last unit and go negative).
+  // Scoping the Firebase transaction to just this one small leaf value keeps
+  // it fast and reliable.
+  let durationSec = 5, stockFail = '';
+  const txResult = await kvLeafTransaction(KEYS.resources, DEFAULT_RESOURCES, function(resources){
+    const ri = resources.findIndex(function(r){ return r.item===item; });
+    if(ri<0 || Number(resources[ri].stock)<=0){ stockFail = item+' หมด กรุณาขอ GM เพิ่ม'; return undefined; }
+    durationSec = Number(resources[ri].durationSec)||5;
+    const next = resources.slice();
+    next[ri] = Object.assign({}, resources[ri], {stock: Number(resources[ri].stock)-1});
+    return next;
   });
+  if(!txResult.committed){ toast(stockFail||'ไม่สามารถหัก stock ได้ (อาจมีคนอื่นใช้พร้อมกัน ลองใหม่อีกครั้ง)','err'); return; }
 
-  const saved=await kvSet(KEYS.patients,latest);
-  if(!saved){
-    await refundResourceItem(item);
-    toast('บันทึก Treatment ไม่สำเร็จ จึงคืน stock แล้ว','err');
+  // Stock is spent — now record the tx slot on the patient. Re-check against
+  // the freshest patient data in case anything changed in the meantime.
+  const wrote = await mutatePatients(function(freshPatients){
+    const idx2 = freshPatients.findIndex(function(x){ return x.id===id; });
+    if(idx2<0) return null;
+    const p2 = freshPatients[idx2];
+    const nowElapsed = elapsedMinutes(STATE.gc);
+    if(hasAnyTxInProgress(p2, nowElapsed)) return null;
+    const tx = (p2.tx||[null,null,null]).slice();
+    tx[slotIndex] = {item:item, startedAt:nowElapsed, durationSec:durationSec};
+    const next = freshPatients.slice();
+    next[idx2] = Object.assign({}, p2, {
+      tx:tx,
+      txStartTime: p2.txStartTime==null ? nowElapsed : p2.txStartTime,
+      events:(p2.events||[]).concat([{t:nowElapsed, type:'TX_START '+item, by:STATE.me.name||''}])
+    });
+    return next;
+  });
+  if(wrote==null){
+    // Extremely rare: stock was spent but the patient slot couldn't be
+    // written (e.g. someone else started a tx in the same instant). Refund
+    // the stock so it isn't lost.
+    await kvLeafTransaction(KEYS.resources, DEFAULT_RESOURCES, function(resources){
+      const ri = resources.findIndex(function(r){ return r.item===item; });
+      if(ri<0) return undefined;
+      const next = resources.slice();
+      next[ri] = Object.assign({}, resources[ri], {stock: Number(resources[ri].stock)+1});
+      return next;
+    });
+    toast('เริ่ม Treatment ไม่สำเร็จ (มีคนอื่นแก้ไขพร้อมกัน) ลองใหม่อีกครั้ง','err');
     return;
   }
-  STATE.patients=latest;
-  STATE.resources=await kvGet(KEYS.resources,DEFAULT_RESOURCES);
-  toast('เริ่มใช้ '+item+' และหัก stock แล้ว'+(reserved.stock==null?'':' — คงเหลือ '+reserved.stock),'ok');
-  render();
+  await refreshAll();
+  toast('เริ่มใช้ '+item+' และหัก stock แล้ว','ok');
 }
 async function txSetDispo(id, dispo){
   const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);});if(idx<0)return null;
+    const idx=patients.findIndex(function(p){return p.id===id;});if(idx<0)return null;
     const p=patients[idx], status=computeTxStatus(p,findCase(STATE.cases,id),elapsed);
     if(status==='DEAD'){toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment','err');return null;}
     if(hasAnyTxInProgress(p,elapsed)){toast('Treatment ยังไม่เสร็จ','err');return null;}
@@ -1088,12 +1036,12 @@ async function txSetDispo(id, dispo){
 ============================================================ */
 async function transferAssign(id, field, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){ return normU(p.id)===normU(id) ? Object.assign({}, p, mkPatch(field,value)) : p; });
+    return patients.map(function(p){ return p.id===id ? Object.assign({}, p, mkPatch(field,value)) : p; });
   });
 }
 async function txSetNote(id, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){return normU(p.id)===normU(id)?Object.assign({},p,{txNote:value}):p;});
+    return patients.map(function(p){return p.id===id?Object.assign({},p,{txNote:value}):p;});
   });
 }
 
@@ -1193,12 +1141,18 @@ async function gmUpdateHospital(name, patch){
 }
 async function gmRenameHospital(oldName,newName,patch){
   newName=norm(newName); if(!newName){toast('กรุณากรอกชื่อโรงพยาบาล','err');return;}
-  await kvRootTransaction(function(root){
-    root[KEYS.hospitals]=(root[KEYS.hospitals]||DEFAULT_HOSPITALS).map(function(h){return h.name===oldName?Object.assign({},h,patch,{name:newName}):h;});
-    root[KEYS.patients]=(root[KEYS.patients]||[]).map(function(p){return p.hospital===oldName?Object.assign({},p,{hospital:newName}):p;});
-    root[KEYS.vehicles]=(root[KEYS.vehicles]||DEFAULT_VEHICLES).map(function(v){return v.busyHospital===oldName?Object.assign({},v,{busyHospital:newName}):v;});
-    return root;
-  });
+  const hospitals = await kvGet(KEYS.hospitals, DEFAULT_HOSPITALS);
+  const nextHospitals = hospitals.map(function(h){ return h.name===oldName ? Object.assign({},h,patch,{name:newName}) : h; });
+  await kvSet(KEYS.hospitals, nextHospitals);
+
+  const patients = await kvGet(KEYS.patients, []);
+  const nextPatients = patients.map(function(p){ return p.hospital===oldName ? Object.assign({},p,{hospital:newName}) : p; });
+  await kvSet(KEYS.patients, nextPatients);
+
+  const vehicles = await kvGet(KEYS.vehicles, DEFAULT_VEHICLES);
+  const nextVehicles = vehicles.map(function(v){ return v.busyHospital===oldName ? Object.assign({},v,{busyHospital:newName}) : v; });
+  await kvSet(KEYS.vehicles, nextVehicles);
+
   await refreshAll();toast('เปลี่ยนชื่อโรงพยาบาลแล้ว','ok');
 }
 
@@ -1478,7 +1432,7 @@ function viewTx(zone){
     const status=computeTxStatus(p,findCase(STATE.cases,p.id),elapsed),dead=status==='DEAD',busy=hasAnyTxInProgress(p,elapsed);
     return '<div class="patient-card stripe-'+zone+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+statusBadgeForTx(status)+'</div>'
       +'<div class="subrow"><span>Primary: '+triageBadge(p.primary)+'</span><span>Secondary: '+triageBadge(p.secondary)+'</span></div>'
-      +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส </label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน diagnosis และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
+      +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส / SOAP / Working diagnosis</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน diagnosis และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
       +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+[0,1,2].map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:6px;">ระบบจะไม่บอกว่ารักษาถูกหรือครบตามเวลาหรือไม่ — ทีมต้องตัดสินใจส่งต่อเอง ผลจะปรากฏเมื่อผู้ป่วยถึงโรงพยาบาล/Debrief</div>')+'</div>';
   }).join('');
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา</div></div><div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'+(cards||'<div class="empty"><div class="big">🛏️</div>ยังไม่มีผู้ป่วย</div>');

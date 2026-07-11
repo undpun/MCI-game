@@ -465,6 +465,15 @@ async function kvRootTransaction(mutator){
   if(!fbReady) return {committed:false};
   try{
     const ref = fbDb.ref(DB_ROOT);
+    // Firebase's transaction() gives your update function whatever it has
+    // *locally cached* for this exact path. Since the rest of the app only
+    // ever reads individual child paths (DB_ROOT/patients, DB_ROOT/resources,
+    // ...), the SDK may never have cached the ROOT path itself — so the very
+    // first transaction on it can be handed `null` even though real data
+    // exists on the server, causing false "ไม่พบผู้ป่วย"/etc. aborts.
+    // Force a fresh read of the exact same path first so the transaction's
+    // update function always starts from real data.
+    await ref.once('value');
     const result = await ref.transaction(function(root){
       root = root || {};
       const decoded = {};
@@ -945,30 +954,40 @@ async function secondarySend(id, dest){
 ============================================================ */
 async function txStartItem(id, slotIndex, item){
   if(!item) return;
-  const elapsed=elapsedMinutes(STATE.gc);
-  let fail='';
-  const result=await kvRootTransaction(function(root){
-    const patients=root[KEYS.patients]||[];
-    const resources=root[KEYS.resources]||DEFAULT_RESOURCES;
-    const idx=patients.findIndex(function(p){return p.id===id;});
-    if(idx<0){fail='ไม่พบผู้ป่วย';return null;}
-    const p=patients[idx], caseObj=findCase(STATE.cases,id);
-    if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){fail='ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment';return null;}
-    if(!canStartSequential(p,slotIndex,elapsed)){fail='ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน';return null;}
-    if(hasAnyTxInProgress(p,elapsed)){fail='มี Treatment กำลังดำเนินการอยู่';return null;}
-    const capacity=treatmentStaffCount(p.txZone);
-    const inProgress=countZoneInProgress(patients,p.txZone,elapsed);
-    if(capacity<=0||inProgress>=capacity){fail='ไม่มี Staff ว่างในโซน '+p.txZone;return null;}
-    const ri=resources.findIndex(function(r){return r.item===item;});
-    if(ri<0||Number(resources[ri].stock)<=0){fail=item+' หมด กรุณาขอ GM เพิ่ม';return null;}
-    const nextResources=resources.slice();
-    nextResources[ri]=Object.assign({},resources[ri],{stock:Number(resources[ri].stock)-1});
-    const nextPatients=patients.slice(), tx=(p.tx||[null,null,null]).slice();
-    tx[slotIndex]={item:item,startedAt:elapsed,durationSec:Number(resources[ri].durationSec)||5};
-    nextPatients[idx]=Object.assign({},p,{tx:tx,txStartTime:p.txStartTime==null?elapsed:p.txStartTime,events:(p.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])});
-    root[KEYS.resources]=nextResources; root[KEYS.patients]=nextPatients;
-    return root;
-  });
+  async function attempt(){
+    const elapsed=elapsedMinutes(STATE.gc);
+    let fail='';
+    const result=await kvRootTransaction(function(root){
+      const patients=root[KEYS.patients]||[];
+      const resources=root[KEYS.resources]||DEFAULT_RESOURCES;
+      const idx=patients.findIndex(function(p){return p.id===id;});
+      if(idx<0){fail='ไม่พบผู้ป่วย';return null;}
+      const p=patients[idx], caseObj=findCase(STATE.cases,id);
+      if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){fail='ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment';return null;}
+      if(!canStartSequential(p,slotIndex,elapsed)){fail='ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน';return null;}
+      if(hasAnyTxInProgress(p,elapsed)){fail='มี Treatment กำลังดำเนินการอยู่';return null;}
+      const capacity=treatmentStaffCount(p.txZone);
+      const inProgress=countZoneInProgress(patients,p.txZone,elapsed);
+      if(capacity<=0||inProgress>=capacity){fail='ไม่มี Staff ว่างในโซน '+p.txZone;return null;}
+      const ri=resources.findIndex(function(r){return r.item===item;});
+      if(ri<0||Number(resources[ri].stock)<=0){fail=item+' หมด กรุณาขอ GM เพิ่ม';return null;}
+      const nextResources=resources.slice();
+      nextResources[ri]=Object.assign({},resources[ri],{stock:Number(resources[ri].stock)-1});
+      const nextPatients=patients.slice(), tx=(p.tx||[null,null,null]).slice();
+      tx[slotIndex]={item:item,startedAt:elapsed,durationSec:Number(resources[ri].durationSec)||5};
+      nextPatients[idx]=Object.assign({},p,{tx:tx,txStartTime:p.txStartTime==null?elapsed:p.txStartTime,events:(p.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])});
+      root[KEYS.resources]=nextResources; root[KEYS.patients]=nextPatients;
+      return root;
+    });
+    return {result:result, fail:fail};
+  }
+  let {result, fail} = await attempt();
+  // Safety net: if the ONLY problem was "patient not found" (a sign the
+  // transaction started from a stale/empty snapshot), retry once — by then
+  // the connection has definitely warmed up and should see the real data.
+  if(!result.committed && fail==='ไม่พบผู้ป่วย'){
+    ({result, fail} = await attempt());
+  }
   if(!result.committed){toast(fail||'ไม่สามารถเริ่ม Treatment ได้','err');return;}
   await refreshAll(); toast('เริ่มใช้ '+item+' และหัก stock แล้ว','ok');
 }

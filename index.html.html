@@ -892,7 +892,7 @@ async function primaryRegister(idRaw){
   if(!caseObj){ toast('ไม่พบ Patient_ID นี้ใน Case pool: '+id,'err'); return; }
   const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    if(patients.some(function(p){ return p.id===id; })){ toast('Patient_ID นี้ถูกใช้ไปแล้ว: '+id,'err'); return null; }
+    if(patients.some(function(p){ return normU(p.id)===normU(id); })){ toast('Patient_ID นี้ถูกใช้ไปแล้ว: '+id,'err'); return null; }
     const p = {
       id:id, stage:'PRIMARY', canWalk:caseObj.canWalk,
       primary:null, primaryTime:null, primaryOrder:null, primaryDest:null,
@@ -907,7 +907,7 @@ async function primaryRegister(idRaw){
 }
 async function primarySetField(id, field, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){ return p.id===id ? Object.assign({}, p, mkPatch(field,value)) : p; });
+    return patients.map(function(p){ return normU(p.id)===normU(id) ? Object.assign({}, p, mkPatch(field,value)) : p; });
   });
 }
 function mkPatch(field,value){ const o={}; o[field]=value; return o; }
@@ -915,7 +915,7 @@ function mkPatch(field,value){ const o={}; o[field]=value; return o; }
 async function primarySend(id, dest){
   const elapsed = elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx=patients.findIndex(function(p){return p.id===id;}); if(idx<0)return null;
+    const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);}); if(idx<0)return null;
     const p=patients[idx];
     if(patientIsDead(p,elapsed)){ toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างที่ Primary Triage','err'); return null; }
     if(!p.primary){ toast('ต้องเลือก Primary Triage ก่อน','err'); return null; }
@@ -931,13 +931,13 @@ async function primarySend(id, dest){
 ============================================================ */
 async function secondarySetField(id, field, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){ return p.id===id ? Object.assign({}, p, mkPatch(field,value)) : p; });
+    return patients.map(function(p){ return normU(p.id)===normU(id) ? Object.assign({}, p, mkPatch(field,value)) : p; });
   });
 }
 async function secondarySend(id, dest){
   const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx=patients.findIndex(function(p){return p.id===id;});if(idx<0)return null;
+    const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);});if(idx<0)return null;
     const p=patients[idx];
     if(patientIsDead(p,elapsed)){toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างที่ Secondary Triage','err');return null;}
     if(!p.secondary){toast('ต้องเลือก Secondary Triage ก่อน','err');return null;}
@@ -960,7 +960,7 @@ async function txStartItem(id, slotIndex, item){
     const result=await kvRootTransaction(function(root){
       const patients=root[KEYS.patients]||[];
       const resources=root[KEYS.resources]||DEFAULT_RESOURCES;
-      const idx=patients.findIndex(function(p){return p.id===id;});
+      const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);});
       if(idx<0){fail='ไม่พบผู้ป่วย';return null;}
       const p=patients[idx], caseObj=findCase(STATE.cases,id);
       if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){fail='ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment';return null;}
@@ -994,7 +994,7 @@ async function txStartItem(id, slotIndex, item){
 async function txSetDispo(id, dispo){
   const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx=patients.findIndex(function(p){return p.id===id;});if(idx<0)return null;
+    const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);});if(idx<0)return null;
     const p=patients[idx], status=computeTxStatus(p,findCase(STATE.cases,id),elapsed);
     if(status==='DEAD'){toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment','err');return null;}
     if(hasAnyTxInProgress(p,elapsed)){toast('Treatment ยังไม่เสร็จ','err');return null;}
@@ -1013,12 +1013,12 @@ async function txSetDispo(id, dispo){
 ============================================================ */
 async function transferAssign(id, field, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){ return p.id===id ? Object.assign({}, p, mkPatch(field,value)) : p; });
+    return patients.map(function(p){ return normU(p.id)===normU(id) ? Object.assign({}, p, mkPatch(field,value)) : p; });
   });
 }
 async function txSetNote(id, value){
   await mutatePatients(function(patients){
-    return patients.map(function(p){return p.id===id?Object.assign({},p,{txNote:value}):p;});
+    return patients.map(function(p){return normU(p.id)===normU(id)?Object.assign({},p,{txNote:value}):p;});
   });
 }
 
@@ -1403,7 +1403,7 @@ function viewTx(zone){
     const status=computeTxStatus(p,findCase(STATE.cases,p.id),elapsed),dead=status==='DEAD',busy=hasAnyTxInProgress(p,elapsed);
     return '<div class="patient-card stripe-'+zone+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+statusBadgeForTx(status)+'</div>'
       +'<div class="subrow"><span>Primary: '+triageBadge(p.primary)+'</span><span>Secondary: '+triageBadge(p.secondary)+'</span></div>'
-      +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส / SOAP / Working diagnosis</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน diagnosis และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
+      +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส </label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน diagnosis และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
       +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+[0,1,2].map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:6px;">ระบบจะไม่บอกว่ารักษาถูกหรือครบตามเวลาหรือไม่ — ทีมต้องตัดสินใจส่งต่อเอง ผลจะปรากฏเมื่อผู้ป่วยถึงโรงพยาบาล/Debrief</div>')+'</div>';
   }).join('');
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา</div></div><div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'+(cards||'<div class="empty"><div class="big">🛏️</div>ยังไม่มีผู้ป่วย</div>');

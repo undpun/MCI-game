@@ -978,8 +978,10 @@ async function txSetDispo(id, dispo){
     const idx=patients.findIndex(function(p){return p.id===id;});if(idx<0)return null;
     const p=patients[idx], status=computeTxStatus(p,findCase(STATE.cases,id),elapsed);
     if(status==='DEAD'){toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment','err');return null;}
-    if(dispo==='TRANSFER'&&status!=='STABILIZED'){toast('ต้องทำ Required Treatment ให้ครบและทันเวลาก่อนส่ง Transfer','err');return null;}
     if(hasAnyTxInProgress(p,elapsed)){toast('Treatment ยังไม่เสร็จ','err');return null;}
+    // Deliberately NOT blocking on whether required tx were completed correctly/in
+    // time — that must stay hidden from players. The real outcome (accepted vs.
+    // dead-on-arrival) is decided later in dispatchSend() at hospital arrival.
     let next;
     if(dispo==='TRANSFER') next=Object.assign({},p,{dispo:'TRANSFER',transferOrder:maxOrder(patients,'transferOrder')+1,stage:'TRANSFER',events:(p.events||[]).concat([{t:elapsed,type:'TO_TRANSFER',by:STATE.me.name||''}])});
     else next=Object.assign({},p,{dispo:'DISCHARGE',stage:'CLOSED',closedReason:'DISCHARGE_TX',dischargeTime:elapsed,events:(p.events||[]).concat([{t:elapsed,type:'DISCHARGE_TX',by:STATE.me.name||''}])});
@@ -1315,8 +1317,10 @@ function closedReasonLabel(reason){
   return map[reason] || reason || '—';
 }
 function statusBadgeForTx(status){
+  // Intentionally do NOT reveal "Stabilized" (correct/complete-in-time) to players —
+  // that would leak the hidden answer key in real time. Only show neutral/in-progress
+  // and terminal DEAD (an objective fact, needed so the team stops working the case).
   if(status==='IN_PROGRESS') return '<span class="badge wait"><span class="pulse-dot"></span> กำลังรักษา</span>';
-  if(status==='STABILIZED') return '<span class="badge ok">✅ Stabilized</span>';
   if(status==='DEAD') return '<span class="badge dead">💀 DEAD</span>';
   return '';
 }
@@ -1381,7 +1385,7 @@ function viewTx(zone){
     return '<div class="patient-card stripe-'+zone+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+statusBadgeForTx(status)+'</div>'
       +'<div class="subrow"><span>Primary: '+triageBadge(p.primary)+'</span><span>Secondary: '+triageBadge(p.secondary)+'</span></div>'
       +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส / SOAP / Working diagnosis</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน diagnosis และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
-      +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+[0,1,2].map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+((busy||status!=='STABILIZED')?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE">Discharge</button></div>')+'</div>';
+      +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+[0,1,2].map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:6px;">ระบบจะไม่บอกว่ารักษาถูกหรือครบตามเวลาหรือไม่ — ทีมต้องตัดสินใจส่งต่อเอง ผลจะปรากฏเมื่อผู้ป่วยถึงโรงพยาบาล/Debrief</div>')+'</div>';
   }).join('');
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา</div></div><div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'+(cards||'<div class="empty"><div class="big">🛏️</div>ยังไม่มีผู้ป่วย</div>');
 }
@@ -1664,7 +1668,13 @@ function gmTabDebrief(){
   const sCorrect=secondaryDone.filter(function(p){return p.secondary===(findCase(STATE.cases,p.id)||{}).secondary;}).length;
   const dead=patients.filter(function(p){return patientIsDead(p,elapsed)||String(p.closedReason||'').indexOf('DEAD')===0;});
   const wrongVehicle=patients.filter(function(p){return p.closedReason==='DEAD_WRONG_VEHICLE';}).length;
-  const overCap=patients.filter(function(p){return p.overCapacity;}).length;
+  const overCapPatients=patients.filter(function(p){return p.overCapacity;});
+  const overCap=overCapPatients.length;
+  const hospOverflowRows=STATE.hospitals.map(function(h){
+    const overRed=Math.max(0,h.redUsed-h.redCap), overYellow=Math.max(0,h.yellowUsed-h.yellowCap), overGreen=Math.max(0,h.greenUsed-h.greenCap);
+    const isOver=(overRed+overYellow+overGreen)>0;
+    return '<tr><td>'+esc(h.name)+'</td><td>'+h.redUsed+'/'+h.redCap+'</td><td>'+h.yellowUsed+'/'+h.yellowCap+'</td><td>'+h.greenUsed+'/'+h.greenCap+'</td><td>'+(isOver?'<span class="badge bad">เกิน Capacity</span>':'<span class="badge ok">ไม่เกิน</span>')+'</td></tr>';
+  }).join('');
   const used={}; patients.forEach(function(p){(p.tx||[]).filter(Boolean).forEach(function(x){used[x.item]=(used[x.item]||0)+1;});});
   const missing=[]; patients.forEach(function(p){const c=findCase(STATE.cases,p.id);if(!c)return;(c.reqTx||[]).forEach(function(item){if(!(p.tx||[]).some(function(x){return x&&x.item===item&&txSlotStatus(x,elapsed)==='SUCCESS';}))missing.push('#'+p.id+': '+item);});});
   const resourceRows=STATE.resources.map(function(r){return '<tr><td>'+esc(r.item)+'</td><td>'+(used[r.item]||0)+'</td><td>'+(r.addedTotal||0)+'</td><td>'+r.stock+'</td></tr>';}).join('');
@@ -1674,7 +1684,8 @@ function gmTabDebrief(){
   }).join('');
   return '<div class="grid cols-4">'+statCard('Primary ถูก',primaryDone.length?round1(pCorrect*100/primaryDone.length)+'%':'—')+statCard('Secondary ถูก',secondaryDone.length?round1(sCorrect*100/secondaryDone.length)+'%':'—')+statCard('เสียชีวิต',dead.length)+statCard('รถผิดประเภท',wrongVehicle)+'</div>'
     +'<div class="grid cols-3 section-gap">'+statCard('Door→Primary เฉลี่ย',avgMetric(patients.map(function(p){return p.primaryTime!=null?p.primaryTime-p.createdAt:NaN;}))+' น.')+statCard('Primary→Secondary เฉลี่ย',avgMetric(patients.map(function(p){return p.secondaryTime!=null&&p.primaryTime!=null?p.secondaryTime-p.primaryTime:NaN;}))+' น.')+statCard('Secondary→Treatment เฉลี่ย',avgMetric(patients.map(function(p){return p.txStartTime!=null&&p.secondaryTime!=null?p.txStartTime-p.secondaryTime:NaN;}))+' น.')+'</div>'
-    +'<div class="card section-gap"><h3>Death & system findings</h3><p>เสียชีวิตและสาเหตุ: '+(dead.map(function(p){return '#'+p.id+' '+deathReasonFor(p,elapsed);}).join(' | ')||'ไม่มี')+'</p><p>Treatment ที่ขาด: '+(missing.join(' | ')||'ไม่มี')+'</p><p>ส่งเกิน Hospital capacity: '+overCap+' คน</p></div>'
+    +'<div class="card section-gap"><h3>Death & system findings</h3><p>เสียชีวิตและสาเหตุ: '+(dead.map(function(p){return '#'+p.id+' '+deathReasonFor(p,elapsed);}).join(' | ')||'ไม่มี')+'</p><p>Treatment ที่ขาด: '+(missing.join(' | ')||'ไม่มี')+'</p><p>ส่งเกิน Hospital capacity: '+overCap+' คน'+(overCapPatients.length?' ('+overCapPatients.map(function(p){return '#'+p.id+'→'+esc(p.hospital||'');}).join(', ')+')':'')+'</p>'
+    +'<table style="margin-top:8px;"><thead><tr><th>รพ.</th><th>RED used/cap</th><th>YELLOW used/cap</th><th>GREEN used/cap</th><th>สถานะ</th></tr></thead><tbody>'+hospOverflowRows+'</tbody></table></div>'
     +'<div class="card section-gap"><h3>ทรัพยากร</h3><table><thead><tr><th>รายการ</th><th>ใช้จริง</th><th>GM เพิ่ม</th><th>คงเหลือ</th></tr></thead><tbody>'+resourceRows+'</tbody></table></div>'
     +'<div class="card section-gap"><h3>Patient Timeline</h3><table><thead><tr><th>ID</th><th>Door</th><th>Primary</th><th>Secondary</th><th>Tx start</th><th>Transfer</th><th>เหตุการณ์</th></tr></thead><tbody>'+timeline+'</tbody></table></div>';
 }

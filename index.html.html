@@ -461,6 +461,31 @@ async function kvUpdate(key, fallback, mutator){
   await kvSet(key, next);
   return next;
 }
+async function kvRootTransaction(mutator){
+  if(!fbReady) return {committed:false};
+  try{
+    const ref = fbDb.ref(DB_ROOT);
+    const result = await ref.transaction(function(root){
+      root = root || {};
+      const decoded = {};
+      Object.keys(root).forEach(function(k){
+        const v=root[k];
+        try{ decoded[k]=typeof v==='string'?JSON.parse(v):v; }catch(e){ decoded[k]=v; }
+      });
+      const next = mutator(decoded);
+      if(next==null) return;
+      const encoded = {};
+      Object.keys(next).forEach(function(k){ encoded[k]=JSON.stringify(next[k]); });
+      return encoded;
+    });
+    STATE.fbConnected=true;
+    return {committed:result.committed, snapshot:result.snapshot};
+  }catch(e){
+    console.error('kvRootTransaction failed',e);
+    STATE.fbConnected=false; STATE.fbErrorMsg=(e&&e.message)||String(e);
+    return {committed:false,error:e};
+  }
+}
 async function fbSelfTest(){
   if(!fbReady) return;
   try{
@@ -509,24 +534,45 @@ function hasAnyTxInProgress(p, elapsed){
 function requiredTxComplete(p, caseObj, elapsed){
   const required = (caseObj && caseObj.reqTx) || [];
   if(!required.length) return true;
-  const done = [];
-  p.tx.forEach(function(slot){
-    if(slot && txSlotStatus(slot, elapsed)==='SUCCESS') done.push(slot.item);
+  const successful = {};
+  (p.tx||[]).forEach(function(slot){
+    if(slot && txSlotStatus(slot, elapsed)==='SUCCESS') successful[slot.item]=true;
   });
-  return required.every(function(r){ return done.indexOf(r) > -1; });
+  return required.every(function(r){ return successful[r]; });
 }
 function computeTxStatus(p, caseObj, elapsed){
   if(!caseObj) return 'UNKNOWN';
-  const limit = caseObj.timeLimit || 999;
-  const txTime = p.txStartTime;
-  if((txTime==null) && elapsed>limit) return 'DEAD';
-  const statuses = patientTxStatuses(p, elapsed);
-  const inProgress = statuses.indexOf('IN_PROGRESS') > -1;
-  const allDone = requiredTxComplete(p, caseObj, elapsed);
-  if(inProgress) return 'IN_PROGRESS';
-  if(allDone && (txTime==null || txTime<=limit)) return 'STABILIZED';
+  const limit = Number(caseObj.timeLimit)||999;
+  const required = caseObj.reqTx||[];
+  const requiredSlots = required.map(function(item){
+    return (p.tx||[]).find(function(slot){ return slot && slot.item===item; });
+  });
+  const allAssigned = requiredSlots.every(Boolean);
+  const allFinished = allAssigned && requiredSlots.every(function(slot){ return txSlotStatus(slot,elapsed)==='SUCCESS'; });
+  const allFinishedInTime = allFinished && requiredSlots.every(function(slot){
+    return (slot.startedAt + slot.durationSec/60) <= limit;
+  });
+  if(required.length===0) return 'STABILIZED';
+  if(allFinishedInTime) return 'STABILIZED';
   if(elapsed>limit) return 'DEAD';
-  return 'PENDING';
+  if(hasAnyTxInProgress(p,elapsed)) return 'IN_PROGRESS';
+  return 'UNASSESSED';
+}
+function patientIsDead(p, elapsed){
+  return computeTxStatus(p, findCase(STATE.cases,p.id), elapsed)==='DEAD';
+}
+function deathReasonFor(p, elapsed){
+  const c=findCase(STATE.cases,p.id);
+  if(!c) return 'ไม่พบข้อมูลโจทย์';
+  const missing=(c.reqTx||[]).filter(function(item){
+    const slot=(p.tx||[]).find(function(x){return x&&x.item===item;});
+    return !slot || (slot.startedAt+slot.durationSec/60)>Number(c.timeLimit);
+  });
+  return missing.length ? 'รักษาไม่ครบ/ไม่ทันเวลา: '+missing.join(', ') : 'เกินเวลาที่กำหนด';
+}
+function effectiveCanWalk(p){
+  const c=findCase(STATE.cases,p.id);
+  return c ? c.canWalk : p.canWalk;
 }
 function canStartSequential(p, slotIndex, elapsed){
   if(slotIndex===0) return true;
@@ -835,16 +881,17 @@ async function primaryRegister(idRaw){
   if(!id){ toast('กรอก Patient_ID ก่อน','err'); return; }
   const caseObj = findCase(STATE.cases, id);
   if(!caseObj){ toast('ไม่พบ Patient_ID นี้ใน Case pool: '+id,'err'); return; }
+  const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
     if(patients.some(function(p){ return p.id===id; })){ toast('Patient_ID นี้ถูกใช้ไปแล้ว: '+id,'err'); return null; }
     const p = {
-      id: id, stage:'PRIMARY',
-      canWalk:null, primary:null, primaryTime:null, primaryOrder:null, primaryDest:null,
+      id:id, stage:'PRIMARY', canWalk:caseObj.canWalk,
+      primary:null, primaryTime:null, primaryOrder:null, primaryDest:null,
       secondary:null, secondaryTime:null, secondaryOrder:null, secondaryDest:null,
-      txZone:null, tx:[null,null,null], txStartTime:null,
-      dispo:null, transferOrder:null,
-      vehicle:null, hospital:null, transferTime:null, transferStatus:null,
-      closedReason:null, dischargeTime:null, createdAt:elapsedMinutes(STATE.gc)
+      txZone:null, tx:[null,null,null], txStartTime:null, txNote:'',
+      dispo:null, transferOrder:null, vehicle:null, hospital:null,
+      transferTime:null, transferStatus:null, closedReason:null,
+      dischargeTime:null, createdAt:elapsed, events:[{t:elapsed,type:'REGISTERED',by:STATE.me.name||''}]
     };
     return patients.concat([p]);
   });
@@ -859,19 +906,14 @@ function mkPatch(field,value){ const o={}; o[field]=value; return o; }
 async function primarySend(id, dest){
   const elapsed = elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx = patients.findIndex(function(p){ return p.id===id; });
-    if(idx<0) return null;
-    const p = patients[idx];
-    if(!p.canWalk){ toast('ต้องประเมิน Can_Walk ก่อน','err'); return null; }
+    const idx=patients.findIndex(function(p){return p.id===id;}); if(idx<0)return null;
+    const p=patients[idx];
+    if(patientIsDead(p,elapsed)){ toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างที่ Primary Triage','err'); return null; }
     if(!p.primary){ toast('ต้องเลือก Primary Triage ก่อน','err'); return null; }
-    const order = maxOrder(patients,'primaryOrder')+1;
-    let next = Object.assign({}, p, {primaryTime:elapsed, primaryOrder:order, primaryDest:dest});
-    if(dest==='DISCHARGE'){
-      next = Object.assign(next, {stage:'CLOSED', closedReason:'DISCHARGE_PRIMARY', dischargeTime:elapsed});
-    } else {
-      next = Object.assign(next, {stage:'SECONDARY'});
-    }
-    const copy = patients.slice(); copy[idx]=next; return copy;
+    const order=maxOrder(patients,'primaryOrder')+1;
+    let next=Object.assign({},p,{primaryTime:elapsed,primaryOrder:order,primaryDest:dest,events:(p.events||[]).concat([{t:elapsed,type:'PRIMARY_'+dest,by:STATE.me.name||''}])});
+    next=dest==='DISCHARGE'?Object.assign(next,{stage:'CLOSED',closedReason:'DISCHARGE_PRIMARY',dischargeTime:elapsed}):Object.assign(next,{stage:'SECONDARY'});
+    const copy=patients.slice();copy[idx]=next;return copy;
   });
 }
 
@@ -884,22 +926,17 @@ async function secondarySetField(id, field, value){
   });
 }
 async function secondarySend(id, dest){
-  const elapsed = elapsedMinutes(STATE.gc);
+  const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx = patients.findIndex(function(p){ return p.id===id; });
-    if(idx<0) return null;
-    const p = patients[idx];
-    if(!p.secondary){ toast('ต้องเลือก Secondary Triage ก่อน','err'); return null; }
-    if(dest==='TX' && p.secondary==='BLACK'){ toast('BLACK ไม่มีโซนรักษา ต้องส่ง Discharge เท่านั้น','err'); return null; }
-    if(dest==='TX' && TX_ZONES.indexOf(p.secondary)===-1){ toast('ส่ง Treatment ได้เฉพาะ RED/YELLOW/GREEN','err'); return null; }
-    const order = maxOrder(patients,'secondaryOrder')+1;
-    let next = Object.assign({}, p, {secondaryTime:elapsed, secondaryOrder:order, secondaryDest:dest});
-    if(dest==='DISCHARGE'){
-      next = Object.assign(next, {stage:'CLOSED', closedReason:'DISCHARGE_SECONDARY', dischargeTime:elapsed});
-    } else {
-      next = Object.assign(next, {stage:'TX', txZone:p.secondary});
-    }
-    const copy = patients.slice(); copy[idx]=next; return copy;
+    const idx=patients.findIndex(function(p){return p.id===id;});if(idx<0)return null;
+    const p=patients[idx];
+    if(patientIsDead(p,elapsed)){toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างที่ Secondary Triage','err');return null;}
+    if(!p.secondary){toast('ต้องเลือก Secondary Triage ก่อน','err');return null;}
+    if(dest==='TX'&&p.secondary==='BLACK'){toast('BLACK ไม่มีโซนรักษา ต้องส่ง Discharge เท่านั้น','err');return null;}
+    const order=maxOrder(patients,'secondaryOrder')+1;
+    let next=Object.assign({},p,{secondaryTime:elapsed,secondaryOrder:order,secondaryDest:dest,events:(p.events||[]).concat([{t:elapsed,type:'SECONDARY_'+dest,by:STATE.me.name||''}])});
+    next=dest==='DISCHARGE'?Object.assign(next,{stage:'CLOSED',closedReason:'DISCHARGE_SECONDARY',dischargeTime:elapsed}):Object.assign(next,{stage:'TX',txZone:p.secondary});
+    const copy=patients.slice();copy[idx]=next;return copy;
   });
 }
 
@@ -908,61 +945,45 @@ async function secondarySend(id, dest){
 ============================================================ */
 async function txStartItem(id, slotIndex, item){
   if(!item) return;
-  const elapsed = elapsedMinutes(STATE.gc);
-  const patients = await kvGet(KEYS.patients, []);
-  const idx = patients.findIndex(function(p){ return p.id===id; });
-  if(idx<0) return;
-  const p = patients[idx];
-  const caseObj = findCase(STATE.cases, id);
-  const status = computeTxStatus(p, caseObj, elapsed);
-  if(status==='DEAD'){ toast('ผู้ป่วยเสียชีวิตแล้ว ไม่สามารถรักษาเพิ่มได้','err'); return; }
-  if(!canStartSequential(p, slotIndex, elapsed)){ toast('ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน','err'); return; }
-  if(hasAnyTxInProgress(p, elapsed)){ toast('มี Treatment กำลังดำเนินการอยู่ ต้องรอให้เสร็จก่อน','err'); return; }
-  const capacity = treatmentStaffCount(p.txZone);
-  const inProgressCount = countZoneInProgress(patients, p.txZone, elapsed);
-  if(capacity<=0 || inProgressCount>=capacity){ toast('ไม่มี Staff ว่างในโซน '+p.txZone+' ('+inProgressCount+'/'+capacity+')','err'); return; }
-
-  let reserved=false, durationSec=5;
-  await kvUpdate(KEYS.resources, DEFAULT_RESOURCES, function(list){
-    return list.map(function(r){
-      if(r.item!==item) return r;
-      durationSec = r.durationSec || 5;
-      if(Number(r.stock)<=0) return r;
-      reserved=true;
-      return Object.assign({}, r, {stock:Number(r.stock)-1});
-    });
+  const elapsed=elapsedMinutes(STATE.gc);
+  let fail='';
+  const result=await kvRootTransaction(function(root){
+    const patients=root[KEYS.patients]||[];
+    const resources=root[KEYS.resources]||DEFAULT_RESOURCES;
+    const idx=patients.findIndex(function(p){return p.id===id;});
+    if(idx<0){fail='ไม่พบผู้ป่วย';return null;}
+    const p=patients[idx], caseObj=findCase(STATE.cases,id);
+    if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){fail='ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment';return null;}
+    if(!canStartSequential(p,slotIndex,elapsed)){fail='ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน';return null;}
+    if(hasAnyTxInProgress(p,elapsed)){fail='มี Treatment กำลังดำเนินการอยู่';return null;}
+    const capacity=treatmentStaffCount(p.txZone);
+    const inProgress=countZoneInProgress(patients,p.txZone,elapsed);
+    if(capacity<=0||inProgress>=capacity){fail='ไม่มี Staff ว่างในโซน '+p.txZone;return null;}
+    const ri=resources.findIndex(function(r){return r.item===item;});
+    if(ri<0||Number(resources[ri].stock)<=0){fail=item+' หมด กรุณาขอ GM เพิ่ม';return null;}
+    const nextResources=resources.slice();
+    nextResources[ri]=Object.assign({},resources[ri],{stock:Number(resources[ri].stock)-1});
+    const nextPatients=patients.slice(), tx=(p.tx||[null,null,null]).slice();
+    tx[slotIndex]={item:item,startedAt:elapsed,durationSec:Number(resources[ri].durationSec)||5};
+    nextPatients[idx]=Object.assign({},p,{tx:tx,txStartTime:p.txStartTime==null?elapsed:p.txStartTime,events:(p.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])});
+    root[KEYS.resources]=nextResources; root[KEYS.patients]=nextPatients;
+    return root;
   });
-  STATE.resources = await kvGet(KEYS.resources, DEFAULT_RESOURCES);
-  if(!reserved){ toast(item+' หมด กรุณาขอ GM เพิ่มทรัพยากร','err'); render(); return; }
-
-  const latest = await kvGet(KEYS.patients, []);
-  const latestIdx = latest.findIndex(function(x){return x.id===id;});
-  if(latestIdx<0) return;
-  const lp=latest[latestIdx];
-  const tx=lp.tx.slice();
-  tx[slotIndex]={item:item,startedAt:elapsed,durationSec:durationSec};
-  latest[latestIdx]=Object.assign({},lp,{tx:tx,txStartTime:lp.txStartTime==null?elapsed:lp.txStartTime});
-  await kvSet(KEYS.patients,latest); STATE.patients=latest;
-  toast('หยิบ '+item+' แล้ว — คงเหลือ '+((STATE.resources.find(function(r){return r.item===item;})||{}).stock||0),'ok'); render();
+  if(!result.committed){toast(fail||'ไม่สามารถเริ่ม Treatment ได้','err');return;}
+  await refreshAll(); toast('เริ่มใช้ '+item+' และหัก stock แล้ว','ok');
 }
 async function txSetDispo(id, dispo){
-  const elapsed = elapsedMinutes(STATE.gc);
+  const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    const idx = patients.findIndex(function(p){ return p.id===id; });
-    if(idx<0) return null;
-    const p = patients[idx];
-    const caseObj = findCase(STATE.cases, id);
-    const status = computeTxStatus(p, caseObj, elapsed);
-    if(status==='DEAD' && dispo!=='DISCHARGE'){ toast('ผู้ป่วยเสียชีวิตแล้ว ส่งได้เฉพาะ Discharge','err'); return null; }
-    if(dispo==='TRANSFER'){
-      if(hasAnyTxInProgress(p, elapsed)){ toast('Treatment ยังไม่เสร็จ รอ TX SUCCESS ก่อน','err'); return null; }
-      const order = maxOrder(patients,'transferOrder')+1;
-      const next = Object.assign({}, p, {dispo:'TRANSFER', transferOrder:order, stage:'TRANSFER'});
-      const copy = patients.slice(); copy[idx]=next; return copy;
-    } else {
-      const next = Object.assign({}, p, {dispo:'DISCHARGE', stage:'CLOSED', closedReason:'DISCHARGE_TX', dischargeTime:elapsed});
-      const copy = patients.slice(); copy[idx]=next; return copy;
-    }
+    const idx=patients.findIndex(function(p){return p.id===id;});if(idx<0)return null;
+    const p=patients[idx], status=computeTxStatus(p,findCase(STATE.cases,id),elapsed);
+    if(status==='DEAD'){toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment','err');return null;}
+    if(dispo==='TRANSFER'&&status!=='STABILIZED'){toast('ต้องทำ Required Treatment ให้ครบและทันเวลาก่อนส่ง Transfer','err');return null;}
+    if(hasAnyTxInProgress(p,elapsed)){toast('Treatment ยังไม่เสร็จ','err');return null;}
+    let next;
+    if(dispo==='TRANSFER') next=Object.assign({},p,{dispo:'TRANSFER',transferOrder:maxOrder(patients,'transferOrder')+1,stage:'TRANSFER',events:(p.events||[]).concat([{t:elapsed,type:'TO_TRANSFER',by:STATE.me.name||''}])});
+    else next=Object.assign({},p,{dispo:'DISCHARGE',stage:'CLOSED',closedReason:'DISCHARGE_TX',dischargeTime:elapsed,events:(p.events||[]).concat([{t:elapsed,type:'DISCHARGE_TX',by:STATE.me.name||''}])});
+    const copy=patients.slice();copy[idx]=next;return copy;
   });
 }
 
@@ -974,6 +995,12 @@ async function transferAssign(id, field, value){
     return patients.map(function(p){ return p.id===id ? Object.assign({}, p, mkPatch(field,value)) : p; });
   });
 }
+async function txSetNote(id, value){
+  await mutatePatients(function(patients){
+    return patients.map(function(p){return p.id===id?Object.assign({},p,{txNote:value}):p;});
+  });
+}
+
 
 /* ============================================================
    13) DISPATCH ACTION
@@ -990,8 +1017,8 @@ async function dispatchSend(vehicleName){
   if(hospitalsList.length>1){ toast('ผู้ป่วยบนรถปลายทางไม่ตรงกัน (Mixed hospital)','err'); return; }
   const hospital = hospitalsList[0];
   const type = vehicleType(vehicleName);
-  const sitting = assigned.filter(function(p){ return p.canWalk==='yes'; }).length;
-  const lying = assigned.filter(function(p){ return p.canWalk!=='yes'; }).length;
+  const sitting = assigned.filter(function(p){ return effectiveCanWalk(p)==='yes'; }).length;
+  const lying = assigned.filter(function(p){ return effectiveCanWalk(p)!=='yes'; }).length;
   const load = calcVehicleLoad(type, assigned.length, sitting, lying, hospitalsList.length);
   if(!load.ok){ toast('โหลดเกินกำหนด: '+load.label,'err'); return; }
 
@@ -999,6 +1026,8 @@ async function dispatchSend(vehicleName){
   const casesNow = STATE.cases;
   let acceptedCount=0, deadCount=0;
   const acceptedIds = [];
+  const hCapacity=STATE.hospitals.find(function(h){return h.name===hospital;});
+  const projected={RED:Number(hCapacity&&hCapacity.redUsed||0),YELLOW:Number(hCapacity&&hCapacity.yellowUsed||0),GREEN:Number(hCapacity&&hCapacity.greenUsed||0)};
   const nextPatients = patients.map(function(p){
     if(!(p.stage==='TRANSFER' && p.vehicle===vehicleName && p.hospital===hospital)) return p;
     const caseObj = findCase(casesNow, p.id);
@@ -1009,7 +1038,14 @@ async function dispatchSend(vehicleName){
     if(!txComplete){ transferStatus='DEAD_TX_INCOMPLETE'; closedReason='DEAD_TX_INCOMPLETE'; deadCount++; }
     else if(wrongVehicle){ transferStatus='DEAD_WRONG_VEHICLE'; closedReason='DEAD_WRONG_VEHICLE'; deadCount++; }
     else { transferStatus='ACCEPTED'; closedReason='TRANSFER_ACCEPTED'; acceptedCount++; acceptedIds.push(p.id); }
-    return Object.assign({}, p, {transferStatus:transferStatus, closedReason:closedReason, stage:'CLOSED', transferTime:elapsed});
+    const color=p.secondary||'';
+    let overCapacity=false;
+    if(closedReason==='TRANSFER_ACCEPTED' && hCapacity && projected[color]!=null){
+      projected[color]++;
+      const cap=color==='RED'?hCapacity.redCap:color==='YELLOW'?hCapacity.yellowCap:hCapacity.greenCap;
+      overCapacity=projected[color]>Number(cap||0);
+    }
+    return Object.assign({}, p, {transferStatus:transferStatus, closedReason:closedReason, stage:'CLOSED', transferTime:elapsed, overCapacity:overCapacity, events:(p.events||[]).concat([{t:elapsed,type:'DISPATCH '+vehicleName+' → '+hospital,by:STATE.me.name||''}])});
   });
   await kvSet(KEYS.patients, nextPatients);
   STATE.patients = nextPatients;
@@ -1048,20 +1084,26 @@ async function dispatchSend(vehicleName){
    14) GM RESOURCE / HOSPITAL EDIT ACTIONS
 ============================================================ */
 async function gmUpdateResource(item, patch){
-  await kvUpdate(KEYS.resources, DEFAULT_RESOURCES, function(list){
-    return list.map(function(r){ return r.item===item ? Object.assign({}, r, patch) : r; });
-  });
-  STATE.resources = await kvGet(KEYS.resources, DEFAULT_RESOURCES);
-  toast('อัปเดตทรัพยากร '+item,'ok');
-  render();
+  await kvUpdate(KEYS.resources,DEFAULT_RESOURCES,function(list){return list.map(function(r){
+    if(r.item!==item)return r;
+    const added=Math.max(0,Number(patch.stock)-Number(r.stock));
+    return Object.assign({},r,patch,{addedTotal:Number(r.addedTotal||0)+added});
+  });});
+  STATE.resources=await kvGet(KEYS.resources,DEFAULT_RESOURCES);toast('อัปเดตทรัพยากร '+item,'ok');render();
 }
 async function gmUpdateHospital(name, patch){
-  await kvUpdate(KEYS.hospitals, DEFAULT_HOSPITALS, function(list){
-    return list.map(function(h){ return h.name===name ? Object.assign({}, h, patch) : h; });
+  await kvUpdate(KEYS.hospitals, DEFAULT_HOSPITALS, function(list){return list.map(function(h){return h.name===name?Object.assign({},h,patch):h;});});
+  STATE.hospitals=await kvGet(KEYS.hospitals,DEFAULT_HOSPITALS);toast('อัปเดตโรงพยาบาล '+name,'ok');render();
+}
+async function gmRenameHospital(oldName,newName,patch){
+  newName=norm(newName); if(!newName){toast('กรุณากรอกชื่อโรงพยาบาล','err');return;}
+  await kvRootTransaction(function(root){
+    root[KEYS.hospitals]=(root[KEYS.hospitals]||DEFAULT_HOSPITALS).map(function(h){return h.name===oldName?Object.assign({},h,patch,{name:newName}):h;});
+    root[KEYS.patients]=(root[KEYS.patients]||[]).map(function(p){return p.hospital===oldName?Object.assign({},p,{hospital:newName}):p;});
+    root[KEYS.vehicles]=(root[KEYS.vehicles]||DEFAULT_VEHICLES).map(function(v){return v.busyHospital===oldName?Object.assign({},v,{busyHospital:newName}):v;});
+    return root;
   });
-  STATE.hospitals = await kvGet(KEYS.hospitals, DEFAULT_HOSPITALS);
-  toast('อัปเดตโรงพยาบาล '+name,'ok');
-  render();
+  await refreshAll();toast('เปลี่ยนชื่อโรงพยาบาลแล้ว','ok');
 }
 
 /* ============================================================
@@ -1245,7 +1287,6 @@ function correctnessBadge(guess, answer){
   return guess===answer ? '<span class="badge ok">✅ ถูกต้อง</span>' : '<span class="badge bad">❌ ไม่ถูกต้อง</span>';
 }
 function canWalkBadge(v){
-  if(!v) return '<span class="badge neutral">ยังไม่ประเมิน</span>';
   return v==='yes' ? '<span class="badge neutral">🚶 นั่งได้</span>' : '<span class="badge neutral">🛏️ นอน</span>';
 }
 function triageButtonsHtml(pid, field, current, act){
@@ -1277,71 +1318,37 @@ function statusBadgeForTx(status){
   if(status==='IN_PROGRESS') return '<span class="badge wait"><span class="pulse-dot"></span> กำลังรักษา</span>';
   if(status==='STABILIZED') return '<span class="badge ok">✅ Stabilized</span>';
   if(status==='DEAD') return '<span class="badge dead">💀 DEAD</span>';
-  if(status==='PENDING') return '<span class="badge neutral">⏳ Pending</span>';
-  return '<span class="badge neutral">—</span>';
+  return '';
 }
 
 /* ============================================================
    17) PRIMARY VIEW
 ============================================================ */
 function viewPrimary(){
-  const elapsed = elapsedMinutes(STATE.gc);
-  const queue = STATE.patients.filter(function(p){ return p.stage==='PRIMARY'; })
-    .sort(function(a,b){ return (b.createdAt||0)-(a.createdAt||0); });
-
-  const cards = queue.map(function(p){
-    const caseObj = findCase(STATE.cases, p.id);
-    const known = !!caseObj;
-    return '<div class="patient-card stripe-'+(p.primary||'').replace('BLACK','BLACK')+'">'
-      + '<div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+ (known?'':'<span class="badge bad">ไม่พบใน Case pool</span>') +'</div>'
-      + '<div><span class="label" style="display:inline-block;margin-right:8px;">Can walk</span>'+canWalkButtonsHtml(p.id, p.canWalk, 'primarySet')+'</div>'
-      + '<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Primary triage</span>'+triageButtonsHtml(p.id,'primary',p.primary,'primarySet')+'</div>'
-      + '<div class="subrow">'
-      +   '<button class="btn sm primary" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="SECONDARY" '+((!p.canWalk||!p.primary)?'disabled':'')+'>ส่งต่อ Secondary Triage →</button>'
-      +   '<button class="btn sm" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+((!p.canWalk||!p.primary)?'disabled':'')+'>Discharge</button>'
-      + '</div>'
-      + '</div>';
+  const elapsed=elapsedMinutes(STATE.gc);
+  const queue=STATE.patients.filter(function(p){return p.stage==='PRIMARY';}).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+  const cards=queue.map(function(p){
+    const dead=patientIsDead(p,elapsed);
+    return '<div class="patient-card stripe-'+(p.primary||'')+'">'
+      +'<div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div>'
+      +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Primary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Primary triage</span>'+triageButtonsHtml(p.id,'primary',p.primary,'primarySet')+'</div><div class="subrow"><button class="btn sm primary" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="SECONDARY" '+(!p.primary?'disabled':'')+'>ส่งต่อ Secondary Triage →</button><button class="btn sm" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+(!p.primary?'disabled':'')+'>Discharge</button></div>')
+      +'</div>';
   }).join('');
-
-  return ''
-  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🩺 Primary Triage</h1></div>'
-  +   '<span class="badge neutral">รอในคิว '+queue.length+'</span></div>'
-  + '<div class="card">'
-  +   '<label class="label">กรอก Patient_ID จากบัตรเคสผู้ป่วย</label>'
-  +   '<div class="flexrow">'
-  +     '<input type="text" id="primaryIdInput" data-preserve class="flex1" placeholder="เช่น 25" data-enter-act="primaryRegister">'
-  +     '<button class="btn primary" data-act="primaryRegister">รับผู้ป่วยใหม่</button>'
-  +   '</div>'
-  + '</div>'
-  + '<div class="section-gap">'
-  +   (cards || '<div class="empty"><div class="big">🩹</div>ยังไม่มีผู้ป่วยรอ — กรอก Patient_ID ด้านบนเพื่อเริ่ม</div>')
-  + '</div>';
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🩺 Primary Triage</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div><div class="card"><label class="label">กรอก Patient_ID จากบัตรเคสผู้ป่วย</label><div class="flexrow"><input type="text" id="primaryIdInput" data-preserve class="flex1" placeholder="เช่น 25" data-enter-act="primaryRegister"><button class="btn primary" data-act="primaryRegister">รับผู้ป่วยใหม่</button></div></div><div class="section-gap">'+(cards||'<div class="empty"><div class="big">🩹</div>ยังไม่มีผู้ป่วยรอ</div>')+'</div>';
 }
 
 /* ============================================================
    18) SECONDARY VIEW
 ============================================================ */
 function viewSecondary(){
-  const queue = STATE.patients.filter(function(p){ return p.stage==='SECONDARY'; })
-    .sort(function(a,b){ return (a.primaryOrder||0)-(b.primaryOrder||0); });
-
-  const cards = queue.map(function(p){
-    const caseObj = findCase(STATE.cases, p.id);
-    const isBlack = p.secondary==='BLACK';
-    return '<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'">'
-      + '<div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(p.canWalk)+' Primary: '+triageBadge(p.primary)+'</div>'
-      + '<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Secondary triage</span>'+triageButtonsHtml(p.id,'secondary',p.secondary,'secondarySet')+'</div>'
-      + '<div class="subrow">'
-      +   (isBlack ? '' : '<button class="btn sm primary" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="TX" '+(!p.secondary?'disabled':'')+'>ส่งต่อ Treatment ('+(p.secondary||'?')+') →</button>')
-      +   '<button class="btn sm" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+(!p.secondary?'disabled':'')+'>Discharge</button>'
-      + '</div>'
-      + '</div>';
+  const elapsed=elapsedMinutes(STATE.gc);
+  const queue=STATE.patients.filter(function(p){return p.stage==='SECONDARY';}).sort(function(a,b){return (a.primaryOrder||0)-(b.primaryOrder||0);});
+  const cards=queue.map(function(p){
+    const dead=patientIsDead(p,elapsed), isBlack=p.secondary==='BLACK';
+    return '<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Primary: '+triageBadge(p.primary)+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div>'
+      +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Secondary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Secondary triage</span>'+triageButtonsHtml(p.id,'secondary',p.secondary,'secondarySet')+'</div><div class="subrow">'+(isBlack?'':'<button class="btn sm primary" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="TX" '+(!p.secondary?'disabled':'')+'>ส่งต่อ Treatment →</button>')+'<button class="btn sm" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+(!p.secondary?'disabled':'')+'>Discharge</button></div>')+'</div>';
   }).join('');
-
-  return ''
-  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🔎 Secondary Triage</h1></div>'
-  +   '<span class="badge neutral">รอในคิว '+queue.length+'</span></div>'
-  + (cards || '<div class="empty"><div class="big">🔎</div>ยังไม่มีผู้ป่วยส่งมาจาก Primary Triage</div>');
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🔎 Secondary Triage</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+(cards||'<div class="empty"><div class="big">🔎</div>ยังไม่มีผู้ป่วย</div>');
 }
 
 /* ============================================================
@@ -1367,65 +1374,34 @@ function txSlotSelectHtml(p, slotIndex, elapsed){
 }
 
 function viewTx(zone){
-  const elapsed = elapsedMinutes(STATE.gc);
-  const capacity = treatmentStaffCount(zone);
-  const used = countZoneInProgress(STATE.patients, zone, elapsed);
-  const queue = STATE.patients.filter(function(p){ return p.stage==='TX' && p.txZone===zone; })
-    .sort(function(a,b){ return (a.secondaryOrder||0)-(b.secondaryOrder||0); });
-
-  const cards = queue.map(function(p){
-    const caseObj = findCase(STATE.cases, p.id);
-    const status = computeTxStatus(p, caseObj, elapsed);
-    const dead = status==='DEAD';
-    const busy = hasAnyTxInProgress(p, elapsed);
-    return '<div class="patient-card stripe-'+zone+'">'
-      + '<div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(p.canWalk)+statusBadgeForTx(status)+'</div>'
-      + '<div>'+ [0,1,2].map(function(i){ return txSlotSelectHtml(p,i,elapsed); }).join('') +'</div>'
-      + '<div class="subrow">'
-      +   '<button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+((busy)?'disabled':'')+'>ส่ง Transfer →</button>'
-      +   '<button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE">Discharge</button>'
-      + '</div>'
-      + (dead ? '<div class="hint" style="color:var(--red);margin-top:6px;">ผู้ป่วยเสียชีวิตแล้ว — ส่งได้เฉพาะ Discharge</div>' : '')
-      + '</div>';
+  const elapsed=elapsedMinutes(STATE.gc), capacity=treatmentStaffCount(zone), used=countZoneInProgress(STATE.patients,zone,elapsed);
+  const queue=STATE.patients.filter(function(p){return p.stage==='TX'&&p.txZone===zone;}).sort(function(a,b){return (a.secondaryOrder||0)-(b.secondaryOrder||0);});
+  const cards=queue.map(function(p){
+    const status=computeTxStatus(p,findCase(STATE.cases,p.id),elapsed),dead=status==='DEAD',busy=hasAnyTxInProgress(p,elapsed);
+    return '<div class="patient-card stripe-'+zone+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+statusBadgeForTx(status)+'</div>'
+      +'<div class="subrow"><span>Primary: '+triageBadge(p.primary)+'</span><span>Secondary: '+triageBadge(p.secondary)+'</span></div>'
+      +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส / SOAP / Working diagnosis</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน diagnosis และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
+      +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+[0,1,2].map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+((busy||status!=='STABILIZED')?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE">Discharge</button></div>')+'</div>';
   }).join('');
-
-  return ''
-  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div>'
-  +   '<div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา</div>'
-  + '</div>'
-  + '<div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'
-  + (cards || '<div class="empty"><div class="big">🛏️</div>ยังไม่มีผู้ป่วยส่งมาที่โซนนี้</div>');
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา</div></div><div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'+(cards||'<div class="empty"><div class="big">🛏️</div>ยังไม่มีผู้ป่วย</div>');
 }
 
 /* ============================================================
    20) TRANSFER DESK VIEW
 ============================================================ */
 function viewTransfer(){
-  const elapsed = elapsedMinutes(STATE.gc);
-  const queue = STATE.patients.filter(function(p){ return p.stage==='TRANSFER'; })
-    .sort(function(a,b){ return (a.transferOrder||0)-(b.transferOrder||0); });
-
-  const vehicleOptions = ['<option value="">— เลือกรถ —</option>'].concat(
-    availableVehicles(elapsed).map(function(v){ return '<option value="'+esc(v.name)+'">'+esc(v.name)+' ('+v.type+')</option>'; })
-  ).join('');
-  const hospitalOptions = ['<option value="">— เลือกโรงพยาบาล —</option>'].concat(
-    STATE.hospitals.map(function(h){ return '<option value="'+esc(h.name)+'">'+esc(h.name)+'</option>'; })
-  ).join('');
-
-  const cards = queue.map(function(p){
-    return '<div class="patient-card stripe-'+(p.secondary||'')+'">'
-      + '<div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(p.canWalk)+' Secondary: '+triageBadge(p.secondary)+' order #'+(p.transferOrder||'?')+'</div>'
-      + '<div class="grid cols-2">'
-      +   '<div><span class="label">Vehicle</span><select data-act="transferSet" data-pid="'+esc(p.id)+'" data-field="vehicle">'+vehicleOptions.replace('value="'+esc(p.vehicle||'###')+'"','value="'+esc(p.vehicle||'###')+'" selected')+'</select></div>'
-      +   '<div><span class="label">Hospital</span><select data-act="transferSet" data-pid="'+esc(p.id)+'" data-field="hospital">'+hospitalOptions.replace('value="'+esc(p.hospital||'###')+'"','value="'+esc(p.hospital||'###')+'" selected')+'</select></div>'
-      + '</div>'
-      + '</div>';
+  const elapsed=elapsedMinutes(STATE.gc);
+  const queue=STATE.patients.filter(function(p){return p.stage==='TRANSFER';}).sort(function(a,b){return (a.transferOrder||0)-(b.transferOrder||0);});
+  const baseVehicles=availableVehicles(elapsed), hospitalOptions=['<option value="">— เลือกโรงพยาบาล —</option>'].concat(STATE.hospitals.map(function(h){return '<option value="'+esc(h.name)+'">'+esc(h.name)+'</option>';})).join('');
+  const cards=queue.map(function(p){
+    const dead=patientIsDead(p,elapsed);
+    const vehicles=p.vehicle&&!baseVehicles.some(function(v){return v.name===p.vehicle;})?baseVehicles.concat(STATE.vehicles.filter(function(v){return v.name===p.vehicle;})):baseVehicles;
+    const vehicleOptions=['<option value="">— เลือกรถ —</option>'].concat(vehicles.map(function(v){return '<option value="'+esc(v.name)+'">'+esc(v.name)+' ('+v.type+')</option>';})).join('');
+    const txDone=(p.tx||[]).filter(Boolean).map(function(x){return esc(x.item)+' ('+(txSlotStatus(x,elapsed)==='SUCCESS'?'สำเร็จ':'กำลังทำ')+')';}).join(', ')||'ไม่มี';
+    return '<div class="patient-card stripe-'+(p.secondary||'')+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Secondary: '+triageBadge(p.secondary)+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div><div class="card" style="padding:10px;margin-bottom:10px;"><div><b>รายละเอียดจาก Treatment:</b> '+esc(p.txNote||'—')+'</div><div class="hint">Treatment ที่ทำ: '+txDone+'</div></div>'
+      +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Transfer</div>':'<div class="grid cols-2"><div><span class="label">Vehicle</span><select data-act="transferSet" data-pid="'+esc(p.id)+'" data-field="vehicle">'+vehicleOptions.replace('value="'+esc(p.vehicle||'###')+'"','value="'+esc(p.vehicle||'###')+'" selected')+'</select></div><div><span class="label">Hospital</span><select data-act="transferSet" data-pid="'+esc(p.id)+'" data-field="hospital">'+hospitalOptions.replace('value="'+esc(p.hospital||'###')+'"','value="'+esc(p.hospital||'###')+'" selected')+'</select></div></div>')+'</div>';
   }).join('');
-
-  return ''
-  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🚑 Transfer Desk</h1></div>'
-  +   '<span class="badge neutral">รอในคิว '+queue.length+'</span></div>'
-  + (cards || '<div class="empty"><div class="big">🚑</div>ยังไม่มีผู้ป่วยรอส่งต่อ</div>');
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🚑 Transfer Desk</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+(cards||'<div class="empty"><div class="big">🚑</div>ยังไม่มีผู้ป่วยรอส่งต่อ</div>');
 }
 
 /* ============================================================
@@ -1439,8 +1415,8 @@ function viewDispatch(embedded){
     const ids = assigned.map(function(p){ return '#'+p.id; }).join(', ') || '—';
     const hospitalsList = uniq(assigned.map(function(p){ return p.hospital; }).filter(Boolean));
     const hospitalLabel = hospitalsList.length===0 ? '—' : hospitalsList.length===1 ? hospitalsList[0] : 'MIXED';
-    const sitting = assigned.filter(function(p){ return p.canWalk==='yes'; }).length;
-    const lying = assigned.filter(function(p){ return p.canWalk!=='yes'; }).length;
+    const sitting = assigned.filter(function(p){ return effectiveCanWalk(p)==='yes'; }).length;
+    const lying = assigned.filter(function(p){ return effectiveCanWalk(p)!=='yes'; }).length;
     const load = calcVehicleLoad(v.type, assigned.length, sitting, lying, hospitalsList.length);
     const canSend = status==='AVAILABLE' && hospitalsList.length===1 && load.ok && assigned.length>0;
     const returnInfo = status==='BUSY' ? ('กลับใน '+round1(v.busyUntilElapsed-elapsed)+' น. ('+esc(v.busyHospital||'')+')') : '';
@@ -1501,7 +1477,8 @@ const GM_TABS = [
   {id:'resources', label:'ทรัพยากร & รพ.'},
   {id:'vehicles', label:'จัดการรถ & Vehicle Board'},
   {id:'patients', label:'ภาพรวมผู้ป่วย'},
-  {id:'discharge', label:'Discharge Log'}
+  {id:'discharge', label:'Discharge Log'},
+  {id:'debrief', label:'Debrief & Timeline'}
 ];
 
 function viewGM(){
@@ -1517,6 +1494,7 @@ function viewGM(){
   else if(STATE.gmTab==='vehicles') body = gmTabVehicles();
   else if(STATE.gmTab==='patients') body = gmTabPatients();
   else if(STATE.gmTab==='discharge') body = viewDischargeLog(true);
+  else if(STATE.gmTab==='debrief') body = gmTabDebrief();
 
   return ''
   + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">COMMAND</div><h1>🎛️ GM Dashboard</h1></div></div>'
@@ -1632,34 +1610,9 @@ function gmTabCases(){
 }
 
 function gmTabResources(){
-  const resRows = STATE.resources.map(function(r){
-    return '<tr class="row-hover">'
-      + '<td>'+esc(r.item)+'</td>'
-      + '<td><input type="number" style="width:80px;" id="res_stock_'+esc(r.item)+'" value="'+r.stock+'"></td>'
-      + '<td><input type="number" style="width:80px;" id="res_dur_'+esc(r.item)+'" value="'+r.durationSec+'"></td>'
-      + '<td><button class="btn sm ghost" data-act="gmSaveResource" data-item="'+esc(r.item)+'">บันทึก</button></td>'
-      + '</tr>';
-  }).join('');
-
-  const hospRows = STATE.hospitals.map(function(h){
-    return '<tr class="row-hover">'
-      + '<td>'+esc(h.name)+'</td>'
-      + '<td><input type="number" style="width:60px;" id="hosp_red_'+esc(h.name)+'" value="'+h.redCap+'"></td>'
-      + '<td><input type="number" style="width:60px;" id="hosp_yellow_'+esc(h.name)+'" value="'+h.yellowCap+'"></td>'
-      + '<td><input type="number" style="width:60px;" id="hosp_green_'+esc(h.name)+'" value="'+h.greenCap+'"></td>'
-      + '<td>'+h.redUsed+' / '+h.yellowUsed+' / '+h.greenUsed+'</td>'
-      + '<td><input type="number" style="width:60px;" id="hosp_dist_'+esc(h.name)+'" value="'+h.distanceMin+'"></td>'
-      + '<td><button class="btn sm ghost" data-act="gmSaveHospital" data-name="'+esc(h.name)+'">บันทึก</button></td>'
-      + '</tr>';
-  }).join('');
-
-  return ''
-  + '<div class="card"><h3>คลังทรัพยากรรักษา</h3>'
-  +   '<table><thead><tr><th>รายการ</th><th>Stock</th><th>ระยะเวลา (วิ)</th><th></th></tr></thead><tbody>'+resRows+'</tbody></table>'
-  + '</div>'
-  + '<div class="card section-gap"><h3>ความจุโรงพยาบาล</h3>'
-  +   '<table><thead><tr><th>รพ.</th><th>Red cap</th><th>Yellow cap</th><th>Green cap</th><th>Used(R/Y/G)</th><th>ระยะทาง(นาที)</th><th></th></tr></thead><tbody>'+hospRows+'</tbody></table>'
-  + '</div>';
+  const resRows=STATE.resources.map(function(r){return '<tr><td>'+esc(r.item)+'</td><td><input type="number" style="width:80px;" id="res_stock_'+esc(r.item)+'" value="'+r.stock+'"></td><td><input type="number" style="width:80px;" id="res_dur_'+esc(r.item)+'" value="'+r.durationSec+'"></td><td><button class="btn sm ghost" data-act="gmSaveResource" data-item="'+esc(r.item)+'">บันทึก</button></td></tr>';}).join('');
+  const hospRows=STATE.hospitals.map(function(h,i){return '<tr><td><input type="text" id="hosp_name_'+i+'" value="'+esc(h.name)+'"></td><td><input type="number" style="width:60px;" id="hosp_red_'+i+'" value="'+h.redCap+'"></td><td><input type="number" style="width:60px;" id="hosp_yellow_'+i+'" value="'+h.yellowCap+'"></td><td><input type="number" style="width:60px;" id="hosp_green_'+i+'" value="'+h.greenCap+'"></td><td>'+h.redUsed+' / '+h.yellowUsed+' / '+h.greenUsed+'</td><td><input type="number" style="width:60px;" id="hosp_dist_'+i+'" value="'+h.distanceMin+'"></td><td><button class="btn sm ghost" data-act="gmSaveHospital" data-index="'+i+'">บันทึก</button></td></tr>';}).join('');
+  return '<div class="card"><h3>คลังทรัพยากรรักษา</h3><table><thead><tr><th>รายการ</th><th>Stock</th><th>ระยะเวลา (วิ)</th><th></th></tr></thead><tbody>'+resRows+'</tbody></table></div><div class="card section-gap"><h3>ความจุและชื่อโรงพยาบาล</h3><table><thead><tr><th>ชื่อ รพ.</th><th>Red</th><th>Yellow</th><th>Green</th><th>Used</th><th>ระยะทาง</th><th></th></tr></thead><tbody>'+hospRows+'</tbody></table></div>';
 }
 
 function hospitalCapacityReadonly(){
@@ -1697,6 +1650,33 @@ function gmTabPatients(){
     + '<table><thead><tr><th>ID</th><th>Stage</th><th>Primary</th><th>Secondary</th><th>Vehicle/Hosp</th><th>ผลลัพธ์</th></tr></thead><tbody>'
     + (rows || '<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:20px;">ยังไม่มีผู้ป่วยในระบบ</td></tr>')
     + '</tbody></table></div>';
+}
+
+function avgMetric(values){
+  const v=values.filter(function(x){return Number.isFinite(x)&&x>=0;});
+  return v.length?round1(v.reduce(function(a,b){return a+b;},0)/v.length):'—';
+}
+function gmTabDebrief(){
+  const elapsed=elapsedMinutes(STATE.gc), patients=STATE.patients;
+  const primaryDone=patients.filter(function(p){return p.primary;});
+  const secondaryDone=patients.filter(function(p){return p.secondary;});
+  const pCorrect=primaryDone.filter(function(p){return p.primary===(findCase(STATE.cases,p.id)||{}).primary;}).length;
+  const sCorrect=secondaryDone.filter(function(p){return p.secondary===(findCase(STATE.cases,p.id)||{}).secondary;}).length;
+  const dead=patients.filter(function(p){return patientIsDead(p,elapsed)||String(p.closedReason||'').indexOf('DEAD')===0;});
+  const wrongVehicle=patients.filter(function(p){return p.closedReason==='DEAD_WRONG_VEHICLE';}).length;
+  const overCap=patients.filter(function(p){return p.overCapacity;}).length;
+  const used={}; patients.forEach(function(p){(p.tx||[]).filter(Boolean).forEach(function(x){used[x.item]=(used[x.item]||0)+1;});});
+  const missing=[]; patients.forEach(function(p){const c=findCase(STATE.cases,p.id);if(!c)return;(c.reqTx||[]).forEach(function(item){if(!(p.tx||[]).some(function(x){return x&&x.item===item&&txSlotStatus(x,elapsed)==='SUCCESS';}))missing.push('#'+p.id+': '+item);});});
+  const resourceRows=STATE.resources.map(function(r){return '<tr><td>'+esc(r.item)+'</td><td>'+(used[r.item]||0)+'</td><td>'+(r.addedTotal||0)+'</td><td>'+r.stock+'</td></tr>';}).join('');
+  const timeline=patients.slice().sort(function(a,b){return (a.createdAt||0)-(b.createdAt||0);}).map(function(p){
+    const events=(p.events||[]).map(function(e){return fmtMin(e.t)+' '+esc(e.type)+(e.by?' — '+esc(e.by):'');}).join('<br>');
+    return '<tr><td>#'+esc(p.id)+'</td><td>'+fmtMin(p.createdAt)+'</td><td>'+fmtMin(p.primaryTime)+'</td><td>'+fmtMin(p.secondaryTime)+'</td><td>'+fmtMin(p.txStartTime)+'</td><td>'+fmtMin(p.transferTime)+'</td><td>'+events+'</td></tr>';
+  }).join('');
+  return '<div class="grid cols-4">'+statCard('Primary ถูก',primaryDone.length?round1(pCorrect*100/primaryDone.length)+'%':'—')+statCard('Secondary ถูก',secondaryDone.length?round1(sCorrect*100/secondaryDone.length)+'%':'—')+statCard('เสียชีวิต',dead.length)+statCard('รถผิดประเภท',wrongVehicle)+'</div>'
+    +'<div class="grid cols-3 section-gap">'+statCard('Door→Primary เฉลี่ย',avgMetric(patients.map(function(p){return p.primaryTime!=null?p.primaryTime-p.createdAt:NaN;}))+' น.')+statCard('Primary→Secondary เฉลี่ย',avgMetric(patients.map(function(p){return p.secondaryTime!=null&&p.primaryTime!=null?p.secondaryTime-p.primaryTime:NaN;}))+' น.')+statCard('Secondary→Treatment เฉลี่ย',avgMetric(patients.map(function(p){return p.txStartTime!=null&&p.secondaryTime!=null?p.txStartTime-p.secondaryTime:NaN;}))+' น.')+'</div>'
+    +'<div class="card section-gap"><h3>Death & system findings</h3><p>เสียชีวิตและสาเหตุ: '+(dead.map(function(p){return '#'+p.id+' '+deathReasonFor(p,elapsed);}).join(' | ')||'ไม่มี')+'</p><p>Treatment ที่ขาด: '+(missing.join(' | ')||'ไม่มี')+'</p><p>ส่งเกิน Hospital capacity: '+overCap+' คน</p></div>'
+    +'<div class="card section-gap"><h3>ทรัพยากร</h3><table><thead><tr><th>รายการ</th><th>ใช้จริง</th><th>GM เพิ่ม</th><th>คงเหลือ</th></tr></thead><tbody>'+resourceRows+'</tbody></table></div>'
+    +'<div class="card section-gap"><h3>Patient Timeline</h3><table><thead><tr><th>ID</th><th>Door</th><th>Primary</th><th>Secondary</th><th>Tx start</th><th>Transfer</th><th>เหตุการณ์</th></tr></thead><tbody>'+timeline+'</tbody></table></div>';
 }
 
 /* ============================================================
@@ -1756,12 +1736,12 @@ async function handleClick(el){
     return;
   }
   if(act==='gmSaveHospital'){
-    const name = el.dataset.name;
-    await gmUpdateHospital(name, {
-      redCap: Number(val('hosp_red_'+name))||0,
-      yellowCap: Number(val('hosp_yellow_'+name))||0,
-      greenCap: Number(val('hosp_green_'+name))||0,
-      distanceMin: Number(val('hosp_dist_'+name))||1
+    const i=Number(el.dataset.index), h=STATE.hospitals[i]; if(!h)return;
+    await gmRenameHospital(h.name,val('hosp_name_'+i),{
+      redCap:Number(val('hosp_red_'+i))||0,
+      yellowCap:Number(val('hosp_yellow_'+i))||0,
+      greenCap:Number(val('hosp_green_'+i))||0,
+      distanceMin:Number(val('hosp_dist_'+i))||1
     });
     return;
   }
@@ -1779,6 +1759,7 @@ async function handleChange(el){
   const act = el.dataset.act;
   if(act==='gmAssign'){ await gmAssignStation(el.dataset.name, el.value); return; }
   if(act==='transferSet'){ await transferAssign(el.dataset.pid, el.dataset.field, el.value); return; }
+  if(act==='txNote'){ await txSetNote(el.dataset.pid,el.value); return; }
   if(act==='txSelect'){
     if(!el.value) return;
     await txStartItem(el.dataset.pid, Number(el.dataset.slot), el.value);

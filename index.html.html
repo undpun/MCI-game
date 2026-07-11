@@ -952,44 +952,119 @@ async function secondarySend(id, dest){
 /* ============================================================
    11) TREATMENT ACTIONS
 ============================================================ */
+async function reserveResourceItem(item){
+  if(!fbReady) return {ok:false, reason:'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'};
+  try{
+    const ref=fbDb.ref(DB_ROOT+'/'+KEYS.resources);
+    let durationSec=5;
+    let fail='';
+    const result=await ref.transaction(function(raw){
+      let list;
+      try{ list=typeof raw==='string'?JSON.parse(raw):raw; }
+      catch(e){ list=null; }
+      if(!Array.isArray(list)){ fail='โหลดข้อมูลทรัพยากรไม่สำเร็จ'; return; }
+      const ri=list.findIndex(function(r){return r.item===item;});
+      if(ri<0){ fail='ไม่พบทรัพยากร '+item; return; }
+      if(Number(list[ri].stock)<=0){ fail=item+' หมด กรุณาขอ GM เพิ่ม'; return; }
+      durationSec=Number(list[ri].durationSec)||5;
+      const next=list.slice();
+      next[ri]=Object.assign({},list[ri],{stock:Number(list[ri].stock)-1});
+      return JSON.stringify(next);
+    });
+    if(!result.committed) return {ok:false,reason:fail||'ไม่สามารถจองทรัพยากรได้'};
+    const raw=result.snapshot.val();
+    const list=typeof raw==='string'?JSON.parse(raw):raw;
+    const resource=(list||[]).find(function(r){return r.item===item;});
+    return {ok:true,durationSec:durationSec,stock:resource?Number(resource.stock):null};
+  }catch(e){
+    console.error('reserveResourceItem failed',e);
+    return {ok:false,reason:(e&&e.message)||'เกิดข้อผิดพลาดในการจองทรัพยากร'};
+  }
+}
+
+async function refundResourceItem(item){
+  if(!fbReady) return;
+  try{
+    const ref=fbDb.ref(DB_ROOT+'/'+KEYS.resources);
+    await ref.transaction(function(raw){
+      let list;
+      try{ list=typeof raw==='string'?JSON.parse(raw):raw; }
+      catch(e){ return; }
+      if(!Array.isArray(list)) return;
+      const ri=list.findIndex(function(r){return r.item===item;});
+      if(ri<0) return;
+      const next=list.slice();
+      next[ri]=Object.assign({},list[ri],{stock:Number(list[ri].stock||0)+1});
+      return JSON.stringify(next);
+    });
+  }catch(e){ console.error('refundResourceItem failed',e); }
+}
+
 async function txStartItem(id, slotIndex, item){
   if(!item) return;
-  async function attempt(){
-    const elapsed=elapsedMinutes(STATE.gc);
-    let fail='';
-    const result=await kvRootTransaction(function(root){
-      const patients=root[KEYS.patients]||[];
-      const resources=root[KEYS.resources]||DEFAULT_RESOURCES;
-      const idx=patients.findIndex(function(p){return normU(p.id)===normU(id);});
-      if(idx<0){fail='ไม่พบผู้ป่วย';return null;}
-      const p=patients[idx], caseObj=findCase(STATE.cases,id);
-      if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){fail='ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment';return null;}
-      if(!canStartSequential(p,slotIndex,elapsed)){fail='ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน';return null;}
-      if(hasAnyTxInProgress(p,elapsed)){fail='มี Treatment กำลังดำเนินการอยู่';return null;}
-      const capacity=treatmentStaffCount(p.txZone);
-      const inProgress=countZoneInProgress(patients,p.txZone,elapsed);
-      if(capacity<=0||inProgress>=capacity){fail='ไม่มี Staff ว่างในโซน '+p.txZone;return null;}
-      const ri=resources.findIndex(function(r){return r.item===item;});
-      if(ri<0||Number(resources[ri].stock)<=0){fail=item+' หมด กรุณาขอ GM เพิ่ม';return null;}
-      const nextResources=resources.slice();
-      nextResources[ri]=Object.assign({},resources[ri],{stock:Number(resources[ri].stock)-1});
-      const nextPatients=patients.slice(), tx=(p.tx||[null,null,null]).slice();
-      tx[slotIndex]={item:item,startedAt:elapsed,durationSec:Number(resources[ri].durationSec)||5};
-      nextPatients[idx]=Object.assign({},p,{tx:tx,txStartTime:p.txStartTime==null?elapsed:p.txStartTime,events:(p.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])});
-      root[KEYS.resources]=nextResources; root[KEYS.patients]=nextPatients;
-      return root;
-    });
-    return {result:result, fail:fail};
+  id=normU(id);
+  slotIndex=Number(slotIndex);
+  const elapsed=elapsedMinutes(STATE.gc);
+
+  // อ่านผู้ป่วยจาก child path โดยตรง เพื่อไม่ให้ root transaction เห็นข้อมูลว่าง
+  const patients=await kvGet(KEYS.patients,[]);
+  const idx=patients.findIndex(function(p){return normU(p.id)===id;});
+  if(idx<0){ toast('ไม่พบผู้ป่วย #'+id,'err'); return; }
+
+  const p=patients[idx];
+  const caseObj=findCase(STATE.cases,id);
+  if(computeTxStatus(p,caseObj,elapsed)==='DEAD'){
+    toast('ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment','err'); return;
   }
-  let {result, fail} = await attempt();
-  // Safety net: if the ONLY problem was "patient not found" (a sign the
-  // transaction started from a stale/empty snapshot), retry once — by then
-  // the connection has definitely warmed up and should see the real data.
-  if(!result.committed && fail==='ไม่พบผู้ป่วย'){
-    ({result, fail} = await attempt());
+  if(!canStartSequential(p,slotIndex,elapsed)){
+    toast('ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน','err'); return;
   }
-  if(!result.committed){toast(fail||'ไม่สามารถเริ่ม Treatment ได้','err');return;}
-  await refreshAll(); toast('เริ่มใช้ '+item+' และหัก stock แล้ว','ok');
+  if(hasAnyTxInProgress(p,elapsed)){
+    toast('มี Treatment กำลังดำเนินการอยู่','err'); return;
+  }
+  const capacity=treatmentStaffCount(p.txZone);
+  const inProgress=countZoneInProgress(patients,p.txZone,elapsed);
+  if(capacity<=0||inProgress>=capacity){
+    toast('ไม่มี Staff ว่างในโซน '+p.txZone,'err'); return;
+  }
+
+  // กัน stock ติดลบด้วย transaction เฉพาะ resources path
+  const reserved=await reserveResourceItem(item);
+  if(!reserved.ok){ toast(reserved.reason,'err'); return; }
+
+  // อ่าน patients ล่าสุดอีกครั้งก่อนบันทึก เพื่อไม่ทับการแก้ไขจากเครื่องอื่น
+  const latest=await kvGet(KEYS.patients,[]);
+  const latestIdx=latest.findIndex(function(x){return normU(x.id)===id;});
+  if(latestIdx<0){
+    await refundResourceItem(item);
+    toast('ไม่พบผู้ป่วยหลังอัปเดตข้อมูล จึงคืน stock แล้ว','err');
+    return;
+  }
+  const lp=latest[latestIdx];
+  if(computeTxStatus(lp,findCase(STATE.cases,id),elapsed)==='DEAD' || hasAnyTxInProgress(lp,elapsed)){
+    await refundResourceItem(item);
+    toast('สถานะผู้ป่วยเปลี่ยนไป จึงยกเลิกและคืน stock แล้ว','err');
+    return;
+  }
+
+  const tx=(lp.tx||[null,null,null]).slice();
+  tx[slotIndex]={item:item,startedAt:elapsed,durationSec:reserved.durationSec};
+  latest[latestIdx]=Object.assign({},lp,{
+    tx:tx,
+    txStartTime:lp.txStartTime==null?elapsed:lp.txStartTime,
+    events:(lp.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])
+  });
+
+  const saved=await kvSet(KEYS.patients,latest);
+  if(!saved){
+    await refundResourceItem(item);
+    toast('บันทึก Treatment ไม่สำเร็จ จึงคืน stock แล้ว','err');
+    return;
+  }
+  STATE.patients=latest;
+  STATE.resources=await kvGet(KEYS.resources,DEFAULT_RESOURCES);
+  toast('เริ่มใช้ '+item+' และหัก stock แล้ว'+(reserved.stock==null?'':' — คงเหลือ '+reserved.stock),'ok');
+  render();
 }
 async function txSetDispo(id, dispo){
   const elapsed=elapsedMinutes(STATE.gc);

@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 <style>
 :root{
   --bg:#0B0F14;
@@ -329,10 +331,1043 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .section-gap{margin-top:24px;}
 .flexrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
 .flex1{flex:1;min-width:120px;}
+
+/* ===================== Scene Setup (embedded map module) ===================== */
+:root{
+  --sc-panel-2:#232833; --sc-line:#2d333f; --sc-amber:#f0a020; --sc-amber-dim:#c98419;
+}
+#scRoot{display:flex;flex-direction:column;height:88vh;min-height:650px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0d0f13;}
+#scRoot .sc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--bg-panel-2);border-bottom:1px solid var(--line);flex-wrap:wrap;}
+#scRoot .sc-body{flex:1;display:flex;min-height:0;position:relative;}
+#scRoot .sc-sidebar{width:220px;flex-shrink:0;background:var(--bg-panel-2);border-right:1px solid var(--line);overflow-y:auto;}
+#scRoot .sc-map{flex:1;min-width:0;background:#0d0f13;}
+#scRoot .sc-footer{padding:6px 12px;background:var(--bg-panel-2);border-top:1px solid var(--line);font-size:11px;color:var(--ink-faint);display:flex;justify-content:space-between;}
+.sc-sect{padding:10px 12px;border-bottom:1px solid var(--sc-line);}
+.sc-sect h2{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-faint);margin:0 0 8px 0;font-weight:700;}
+.sc-tool-grid{display:flex;flex-direction:column;gap:5px;}
+.sc-tool{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;background:var(--sc-panel-2);border:1px solid transparent;cursor:pointer;font-size:12px;}
+.sc-tool:hover{border-color:var(--sc-line);}
+.sc-tool.active{border-color:var(--sc-amber);background:#2a2210;}
+.sc-tool .sc-ic{width:20px;text-align:center;flex-shrink:0;}
+.sc-tool .sc-ic svg{display:block;}
+.sc-legend-item{display:flex;align-items:center;gap:6px;font-size:11px;padding:5px 6px;background:var(--sc-panel-2);border-radius:5px;cursor:pointer;margin-bottom:4px;}
+.sc-legend-item:hover{background:#2a3040;}
+.sc-legend-item .sc-lname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sc-legend-item .sc-ldel{color:var(--ink-faint);cursor:pointer;padding:0 3px;}
+.sc-empty-note{font-size:10.5px;color:var(--ink-faint);font-style:italic;padding:4px 2px;}
+.sc-tent-icon{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #0d0f13;box-shadow:0 2px 6px rgba(0,0,0,.5);}
+.sc-tent-icon span{transform:rotate(45deg);font-size:14px;}
+.leaflet-popup-content-wrapper{background:var(--sc-panel-2);color:var(--ink);border-radius:8px;}
+.leaflet-popup-tip{background:var(--sc-panel-2);}
+.sc-popup input,.sc-popup select{width:100%;background:#1b1f26;border:1px solid var(--sc-line);color:var(--ink);border-radius:5px;padding:6px 7px;font-size:12px;margin-bottom:6px;font-family:inherit;}
+.sc-popup .sc-row{display:flex;gap:6px;}
+.sc-popup button{flex:1;font-size:11px;padding:6px;}
+.sc-route-label{background:var(--sc-panel-2);color:var(--sc-amber);border:1px solid var(--sc-amber-dim);padding:2px 6px;border-radius:4px;font-size:10.5px;white-space:nowrap;}
+.sc-arrow-ic{font-size:20px;color:#f0a020;text-shadow:0 0 3px #000,0 0 3px #000;}
+.sc-map-icon{background:transparent!important;border:none!important;}
+.sc-svg-wrap{width:44px;height:44px;filter:drop-shadow(0 3px 3px rgba(0,0,0,.65));}
+.sc-svg-wrap svg{display:block;width:44px;height:44px;}
+.sc-zone-move-handle{width:22px;height:22px;border-radius:50%;background:#fff;border:2px solid #111827;box-shadow:0 2px 7px rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;color:#111827;font-size:14px;font-weight:800;cursor:move;user-select:none;}
+.sc-float-panel{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--bg-panel);border:1px solid var(--sc-amber-dim);border-radius:8px;padding:10px 12px;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:1200;display:flex;align-items:center;gap:8px;font-size:12px;flex-wrap:wrap;max-width:92vw;}
+.sc-float-panel.hidden{display:none;}
+.sc-float-panel .sc-fp-title{color:var(--ink-faint);font-size:11px;width:100%;}
+.sc-float-panel input[type=number]{width:70px;background:#1b1f26;border:1px solid var(--sc-line);color:var(--ink);border-radius:5px;padding:5px 6px;font-size:12px;}
+.sc-float-panel select{background:#1b1f26;border:1px solid var(--sc-line);color:var(--ink);border-radius:5px;padding:5px 6px;font-size:12px;font-family:inherit;}
+.sc-search{position:relative;z-index:2;width:100%;background:var(--bg-panel-2);border-bottom:1px solid var(--line);padding:10px 12px;}
+.sc-search-row{display:flex;gap:8px;max-width:760px;margin:0 auto}.sc-search-row input{margin:0}.sc-search-row .btn{min-width:86px}.sc-search-results{max-height:180px;overflow:auto;margin:6px auto 0;max-width:760px;background:var(--bg-panel);border-radius:7px}.sc-search-results:empty{display:none}.sc-search-item{padding:8px 10px;border-top:1px solid var(--line-soft);font-size:11px;cursor:pointer}.sc-search-item:first-child{border-top:none}.sc-search-item:hover{background:var(--bg-panel-2)}
+.sc-nearby-hospital{background:transparent!important;border:none!important}.sc-nearby-pin{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid #16a34a;box-shadow:0 2px 7px rgba(0,0,0,.55);font-size:16px}.sc-search-status{font-size:10.5px;color:var(--ink-faint);max-width:760px;margin:5px auto 0}
+@media (max-width:760px){
+  #scRoot{height:82vh;min-height:560px;}
+  .sc-search-row{max-width:none;}
+  #scRoot .sc-sidebar{position:absolute;left:0;top:41px;bottom:25px;z-index:1000;transform:translateX(-100%);transition:.2s;width:220px;}
+  #scRoot .sc-sidebar.open{transform:translateX(0);}
+}
+
+/* ---------- Read-only Scene Viewer (persistent floating panel) ---------- */
+.sv-tent-icon, .sv-vehicle-icon{background:transparent!important;border:none!important;}
+#sceneViewerHost{
+  position:fixed; right:16px; bottom:16px; z-index:1400;
+  width:360px; max-width:calc(100vw - 24px);
+  background:var(--bg-panel); border:1px solid var(--line); border-radius:10px;
+  box-shadow:0 8px 28px rgba(0,0,0,.45);
+  display:flex; flex-direction:column; overflow:hidden;
+  transition:height .15s;
+}
+#sceneViewerHost.hidden{display:none;}
+#sceneViewerHost .sv-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; background:var(--bg-panel-2); border-bottom:1px solid var(--line);
+  font-size:12.5px; font-weight:600; color:var(--ink);
+}
+#sceneViewerHost .sv-toggle{
+  background:transparent; border:1px solid var(--line); color:var(--ink-dim);
+  border-radius:6px; width:24px; height:24px; cursor:pointer; font-size:13px; line-height:1;
+}
+#sceneViewerHost #sceneViewerMap{height:280px; background:#0d0f13;}
+#sceneViewerHost.collapsed #sceneViewerMap{display:none;}
+@media (max-width:640px){
+  #sceneViewerHost{right:8px; bottom:8px; width:280px;}
+  #sceneViewerHost #sceneViewerMap{height:220px;}
+}
+
+/* On/off toggle switch used for game settings (map, distance calc, etc.) */
+.toggle-row{display:flex;align-items:center;gap:10px;}
+.toggle-switch{position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#4b5160;border-radius:999px;transition:.15s;}
+.toggle-slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.4);}
+.toggle-switch input:checked + .toggle-slider{background:#22c55e;}
+.toggle-switch input:checked + .toggle-slider:before{transform:translateX(18px);}
+.toggle-switch input:disabled + .toggle-slider{opacity:.4;cursor:not-allowed;}
+.toggle-label{font-size:12.5px;color:var(--ink);}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="sceneViewerHost" class="hidden">
+  <div class="sv-head"><span>🗺️ Scene Map</span><button type="button" class="sv-toggle" id="sceneViewerToggle" title="ย่อ/ขยาย">—</button></div>
+  <div id="sceneViewerMap"></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+/* ============================================================
+   SCENE SETUP MODULE (embedded, namespaced as window.SceneApp)
+   Adapted from the standalone Scene Setup prototype. Mounted/destroyed
+   by the main app's render() only when GM is on the "Scene Setup" tab,
+   since its Leaflet map instance can't survive innerHTML replacement.
+   `items` (tents/zones/routes) is kept at module scope so an in-progress,
+   unpublished draft survives the GM switching tabs and coming back within
+   the same page session — only a full page reload clears it (falls back
+   to whatever was last published/loaded from Firebase, same as before).
+   Firebase I/O and the publish/skip gate live in the main app; this module
+   only exposes serialize()/loadScenario() plus mount()/destroy().
+============================================================ */
+window.SceneApp = (function(){
+  'use strict';
+
+  const TENT_TYPES = [
+    {id:'incident',  label:'จุดเกิดเหตุ',            iconKind:'fire',      color:'#ef4444'},
+    {id:'primary',   label:'Primary Triage',          iconKind:'tent',      color:'#3b82f6'},
+    {id:'secondary', label:'Secondary Triage',        iconKind:'tent',      color:'#8b5cf6'},
+    {id:'red',       label:'Treatment แดง',           iconKind:'treatment', color:'#ef4444'},
+    {id:'yellow',    label:'Treatment เหลือง',        iconKind:'treatment', color:'#facc15'},
+    {id:'green',     label:'Treatment เขียว',         iconKind:'treatment', color:'#22c55e'},
+    {id:'black',     label:'Black / Expectant',       iconKind:'treatment', color:'#111827'},
+    {id:'loading',   label:'Loading',                 iconKind:'ambulance', color:'#a855f7'},
+    {id:'parking',   label:'Parking / Staging',       iconKind:'parking',   color:'#38bdf8'},
+    {id:'hospital',  label:'โรงพยาบาล',               iconKind:'hospital',  color:'#16a34a'},
+    {id:'command',   label:'Command Post',            iconKind:'command',   color:'#f59e0b'},
+    {id:'decon',     label:'จุดล้างสารปนเปื้อน',        iconKind:'decon',     color:'#06b6d4'},
+  ];
+
+  function tentSvg(t, size){
+    size = size || 38;
+    const c = t.color, stroke = '#111827';
+    const common = 'width="'+size+'" height="'+size+'" viewBox="0 0 48 48" aria-hidden="true"';
+    if(t.iconKind === 'fire'){
+      return '<svg '+common+'><path d="M26 4c2 8-5 10-2 17 2-3 5-5 7-9 7 8 10 15 7 23-3 7-10 10-17 8C12 41 7 34 9 26c2-7 8-11 12-17 1 6 1 9 5 12-1-7 4-11 0-17z" fill="#f97316" stroke="'+stroke+'" stroke-width="2"/><path d="M24 24c5 5 6 9 3 13-2 3-7 3-10 0-3-4-1-9 4-13 0 4 1 6 3 7 1-2 1-4 0-7z" fill="#fde047"/></svg>';
+    }
+    if(t.iconKind === 'tent' || t.iconKind === 'treatment'){
+      const dot = t.iconKind === 'treatment' ? '<circle cx="24" cy="29" r="7" fill="'+c+'" stroke="#fff" stroke-width="2"/>' : '';
+      return '<svg '+common+'><path d="M6 39L23 10l19 29H6z" fill="'+c+'" stroke="'+stroke+'" stroke-width="2.4"/><path d="M23 10v29" stroke="#fff" stroke-width="2" opacity=".9"/><path d="M23 10L12 39" stroke="#fff" stroke-width="1.6" opacity=".75"/>'+dot+'</svg>';
+    }
+    if(t.iconKind === 'ambulance'){
+      return '<svg '+common+'><rect x="5" y="14" width="27" height="20" rx="3" fill="#fff" stroke="'+stroke+'" stroke-width="2"/><path d="M32 21h7l4 7v6H32V21z" fill="'+c+'" stroke="'+stroke+'" stroke-width="2"/><path d="M17 18v12M11 24h12" stroke="#ef4444" stroke-width="4"/><circle cx="13" cy="36" r="4" fill="#374151"/><circle cx="36" cy="36" r="4" fill="#374151"/></svg>';
+    }
+    if(t.iconKind === 'parking'){
+      return '<svg '+common+'><rect x="6" y="5" width="36" height="38" rx="7" fill="'+c+'" stroke="'+stroke+'" stroke-width="2"/><path d="M17 36V13h10c7 0 11 4 11 10s-4 10-11 10h-4v3h-6zm6-9h4c3 0 5-1 5-4s-2-4-5-4h-4v8z" fill="#fff"/></svg>';
+    }
+    if(t.iconKind === 'hospital'){
+      return '<svg '+common+'><path d="M8 42V12h32v30H8z" fill="#fff" stroke="'+stroke+'" stroke-width="2"/><path d="M18 5h12v14H18z" fill="'+c+'" stroke="'+stroke+'" stroke-width="2"/><path d="M24 8v8M20 12h8" stroke="#fff" stroke-width="3"/><path d="M14 24h6v6h-6zm14 0h6v6h-6zM21 34h6v8h-6z" fill="'+c+'"/></svg>';
+    }
+    if(t.iconKind === 'command'){
+      return '<svg '+common+'><circle cx="24" cy="24" r="19" fill="'+c+'" stroke="'+stroke+'" stroke-width="2"/><circle cx="24" cy="24" r="10" fill="none" stroke="#fff" stroke-width="3"/><path d="M24 7v9M24 32v9M7 24h9M32 24h9" stroke="#fff" stroke-width="3"/></svg>';
+    }
+    if(t.iconKind === 'decon'){
+      return '<svg '+common+'><path d="M24 5C18 14 12 21 12 29a12 12 0 0024 0c0-8-6-15-12-24z" fill="'+c+'" stroke="'+stroke+'" stroke-width="2"/><path d="M18 29c2 5 6 7 11 5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
+    }
+    return '<svg '+common+'><circle cx="24" cy="24" r="18" fill="'+c+'" stroke="'+stroke+'" stroke-width="2"/></svg>';
+  }
+
+  const ZONE_TYPES = [
+    {id:'hot',  label:'Hot Zone (อันตราย)',  color:'#e5484d', fill:'#e5484d'},
+    {id:'warm', label:'Warm Zone (เฝ้าระวัง)', color:'#f0c020', fill:'#f0c020'},
+    {id:'cold', label:'Cold Zone (ปลอดภัย)', color:'#3fb56f', fill:'#3fb56f'},
+  ];
+  const ROUTE_TYPES = [
+    {id:'entry', label:'ทางเข้ารถฉุกเฉิน', icon:'➡️'},
+    {id:'exit', label:'ทางออกรถฉุกเฉิน', icon:'⬅️'},
+    {id:'closed', label:'ถนนปิด', icon:'⛔'},
+    {id:'patient', label:'เส้นทางเคลื่อนย้ายผู้ป่วย', icon:'🚶'}
+  ];
+
+  let map=null, layerGroups=null, items=null, idCounter=1;
+  let mode=null, routeDraft=null, zoneDraft=null, zoneDragging=false, suppressNextMapClick=false;
+  let lastSnapshot=null;      // captured on destroy() so re-opening the tab restores the unpublished draft
+  let skipSnapshotOnDestroy=false;
+  let nearbyHospitalLayer=null;
+  let hospitalOptions=[];     // STATE.hospitals names, refreshed on each mount
+
+  function currentHospitalNames(){
+    const placed = items && items.tents ? items.tents.filter(function(t){return t.typeId==='hospital';}).map(function(t){return t.name;}) : [];
+    return Array.from(new Set((placed.length ? placed : hospitalOptions).filter(Boolean)));
+  }
+  function hospitalSelectHtml(selected){
+    let opts = '<option value="">— ไม่ผูกกับ รพ. —</option>';
+    currentHospitalNames().forEach(function(name){
+      opts += '<option value="'+esc(name)+'" '+(selected===name?'selected':'')+'>'+esc(name)+'</option>';
+    });
+    return opts;
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function buildTools(){
+    const tentBox = document.getElementById('tentTools');
+    tentBox.innerHTML='';
+    TENT_TYPES.forEach(function(t){
+      const el = document.createElement('div');
+      el.className='sc-tool';
+      el.dataset.mode = 'tent:'+t.id;
+      el.innerHTML = '<span class="sc-ic">'+tentSvg(t,22)+'</span><span class="lbl">'+t.label+'</span>';
+      el.onclick = function(){ setMode('tent:'+t.id, el); };
+      tentBox.appendChild(el);
+    });
+    const zoneBox = document.getElementById('zoneTools');
+    zoneBox.innerHTML='';
+    ZONE_TYPES.forEach(function(z){
+      const el = document.createElement('div');
+      el.className='sc-tool';
+      el.dataset.mode = 'zone:'+z.id;
+      el.innerHTML = '<span class="sc-ic" style="background:'+z.color+';width:14px;height:14px;border-radius:3px;"></span><span class="lbl">'+z.label+'</span>';
+      el.onclick = function(){ setMode('zone:'+z.id, el); };
+      zoneBox.appendChild(el);
+    });
+    const routeBox = document.getElementById('routeTools');
+    routeBox.innerHTML='';
+    ROUTE_TYPES.forEach(function(r){
+      const el = document.createElement('div');
+      el.className='sc-tool';
+      el.dataset.mode = 'route:'+r.id;
+      el.innerHTML = '<span class="sc-ic">'+r.icon+'</span><span class="lbl">'+r.label+'</span>';
+      el.onclick = function(){ setMode('route:'+r.id, el); };
+      routeBox.appendChild(el);
+    });
+    const finishEl = document.createElement('div');
+    finishEl.className='sc-tool';
+    finishEl.style.display='none';
+    finishEl.id='finishRouteBtn';
+    finishEl.innerHTML = '<span class="sc-ic">✔️</span><span class="lbl">จบเส้นทางนี้ (ดับเบิลคลิกก็ได้)</span>';
+    finishEl.onclick = finishRoute;
+    routeBox.appendChild(finishEl);
+  }
+
+  function setMode(newMode, el){
+    if(routeDraft) cancelRouteDraft();
+    if(zoneDraft) cancelZoneDraft();
+    if(mode === newMode){
+      mode = null;
+      document.querySelectorAll('#scRoot .sc-tool').forEach(function(e){ e.classList.remove('active'); });
+      updateStatus();
+      return;
+    }
+    mode = newMode;
+    document.querySelectorAll('#scRoot .sc-tool').forEach(function(e){ e.classList.remove('active'); });
+    if(el) el.classList.add('active');
+    const fb = document.getElementById('finishRouteBtn');
+    if(fb) fb.style.display = (mode && mode.indexOf('route:')===0) ? 'flex' : 'none';
+    updateStatus();
+  }
+
+  function updateStatus(){
+    const statusText = document.getElementById('statusText');
+    if(!statusText) return;
+    if(!mode){ statusText.textContent = 'โหมด: เลื่อนแผนที่ปกติ'; return; }
+    if(mode.indexOf('tent:')===0){
+      const t = TENT_TYPES.find(function(x){return x.id===mode.split(':')[1];});
+      statusText.textContent = 'โหมด: แตะบนแผนที่เพื่อวาง "'+t.label+'"';
+    } else if(mode.indexOf('zone:')===0){
+      const z = ZONE_TYPES.find(function(x){return x.id===mode.split(':')[1];});
+      statusText.textContent = 'โหมด: กดค้างแล้วลากกำหนดรัศมี "'+z.label+'"';
+    } else if(mode.indexOf('route:')===0){
+      const rt = ROUTE_TYPES.find(function(x){return x.id===mode.split(':')[1];});
+      statusText.textContent = 'โหมด: วาด '+(rt?rt.label:'')+' — คลิกตามแนวเส้น ดับเบิลคลิกเพื่อจบ';
+    }
+  }
+
+  function handleMapAction(latlng){
+    if(!mode) return;
+    if(mode.indexOf('tent:')===0) placeTent(mode.split(':')[1], latlng);
+    else if(mode.indexOf('route:')===0) addRoutePoint(latlng, mode.split(':')[1]);
+  }
+
+  function wireShapeClick(layer){
+    layer.on('click', function(e){
+      if(mode){ layer.closePopup(); L.DomEvent.stop(e); handleMapAction(e.latlng); }
+    });
+  }
+
+  /* ---------------- TENTS ---------------- */
+  function makeTentIcon(t){
+    return L.divIcon({className:'sc-map-icon', html:'<div class="sc-svg-wrap">'+tentSvg(t,44)+'</div>', iconSize:[44,44], iconAnchor:[22,40], popupAnchor:[0,-38]});
+  }
+  function placeTent(typeId, latlng){
+    const t = TENT_TYPES.find(function(x){return x.id===typeId;});
+    const id = 'tent_'+(idCounter++);
+    const marker = L.marker(latlng, {icon: makeTentIcon(t), draggable:true});
+    const rec = {id:id, typeId:typeId, name:t.label, latlng:latlng, linkedHospitalName:null, redCap:0, yellowCap:0, greenCap:0};
+    marker.on('drag', function(){ rec.latlng = marker.getLatLng(); });
+    marker.on('dragend', function(){ refreshLegend(); });
+    marker.bindPopup(function(){ return buildTentPopup(rec, marker); });
+    wireShapeClick(marker);
+    marker.addTo(layerGroups.tents);
+    rec.marker = marker;
+    items.tents.push(rec);
+    refreshLegend(); updateCount();
+  }
+  function buildTentPopup(rec, marker){
+    const div = document.createElement('div');
+    div.className = 'sc-popup';
+    const hospField = rec.typeId==='hospital'
+      ? '<label style="font-size:10.5px;color:var(--ink-faint);">ชื่อและความจุโรงพยาบาล</label>'
+        +'<div class="sc-row"><input type="number" min="0" data-role="redCap" value="'+(rec.redCap||0)+'" placeholder="Red"><input type="number" min="0" data-role="yellowCap" value="'+(rec.yellowCap||0)+'" placeholder="Yellow"><input type="number" min="0" data-role="greenCap" value="'+(rec.greenCap||0)+'" placeholder="Green"></div>'
+        +'<div style="font-size:10px;color:var(--ink-faint);margin:-2px 0 6px;">Red / Yellow / Green capacity</div>'
+      : '';
+    div.innerHTML = '<input type="text" value="'+rec.name.replace(/"/g,'&quot;')+'" placeholder="ชื่อโรงพยาบาล" />'+hospField+'<div class="sc-row"><button class="btn" data-act="save">บันทึก</button><button class="btn danger" data-act="del">ลบ</button></div>';
+    div.querySelector('[data-act=save]').onclick = function(){
+      rec.name = div.querySelector('input[type=text]').value || rec.name;
+      if(rec.typeId==='hospital'){
+        rec.redCap = Number(div.querySelector('[data-role=redCap]').value)||0;
+        rec.yellowCap = Number(div.querySelector('[data-role=yellowCap]').value)||0;
+        rec.greenCap = Number(div.querySelector('[data-role=greenCap]').value)||0;
+        rec.linkedHospitalName = rec.name;
+      }
+      marker.closePopup(); refreshLegend();
+    };
+    div.querySelector('[data-act=del]').onclick = function(){
+      layerGroups.tents.removeLayer(marker);
+      items.tents = items.tents.filter(function(x){return x.id!==rec.id;});
+      refreshLegend(); updateCount();
+    };
+    return div;
+  }
+
+  /* ---------------- ZONES ---------------- */
+  function wireZonePanelOnce(){
+    const radiusPanel = document.getElementById('radiusPanel');
+    L.DomEvent.disableClickPropagation(radiusPanel);
+    L.DomEvent.disableScrollPropagation(radiusPanel);
+    ['pointerdown','mousedown','mouseup','click','dblclick','touchstart','touchend'].forEach(function(type){
+      radiusPanel.addEventListener(type, function(ev){ ev.stopPropagation(); });
+    });
+    document.getElementById('radiusInput').addEventListener('input', function(){
+      if(!zoneDraft) return;
+      const v = parseFloat(document.getElementById('radiusInput').value);
+      if(!isNaN(v) && v>=5) zoneDraft.circle.setRadius(v);
+    });
+    document.getElementById('radiusConfirm').onclick = function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      suppressNextMapClick = true;
+      if(!zoneDraft) return;
+      const v = parseFloat(document.getElementById('radiusInput').value);
+      if(!isNaN(v) && v>=5) zoneDraft.circle.setRadius(v);
+      const z = ZONE_TYPES.find(function(x){return x.id===zoneDraft.typeId;});
+      finalizeZone(zoneDraft, z);
+      zoneDraft = null;
+      radiusPanel.classList.add('hidden');
+      setMode(null);
+    };
+    document.getElementById('radiusCancel').onclick = function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      suppressNextMapClick = true;
+      cancelZoneDraft();
+    };
+  }
+  function beginZonePointer(typeId, latlng){
+    if(zoneDraft) cancelZoneDraft();
+    const z = ZONE_TYPES.find(function(x){return x.id===typeId;});
+    zoneDragging = true;
+    map.dragging.disable();
+    zoneDraft = {typeId:typeId, center:latlng, circle: L.circle(latlng, {radius:5, color:z.color, fillColor:z.fill, fillOpacity:.18, weight:2, dashArray:'5 5', interactive:false}).addTo(layerGroups.zones)};
+    document.getElementById('radiusInput').value = 5;
+    document.getElementById('radiusPanel').classList.add('hidden');
+    document.getElementById('statusText').textContent = 'กดค้างแล้วลากเพื่อกำหนดรัศมี "'+z.label+'" จากนั้นปล่อยเมาส์';
+  }
+  function resizeZonePointer(latlng){
+    if(!zoneDragging || !zoneDraft) return;
+    const r = Math.max(zoneDraft.center.distanceTo(latlng), 5);
+    zoneDraft.circle.setRadius(r);
+    document.getElementById('radiusInput').value = Math.round(r);
+  }
+  function endZonePointer(){
+    if(!zoneDragging || !zoneDraft) return;
+    zoneDragging = false;
+    map.dragging.enable();
+    suppressNextMapClick = true;
+    document.getElementById('radiusPanel').classList.remove('hidden');
+    const z = ZONE_TYPES.find(function(x){return x.id===zoneDraft.typeId;});
+    document.getElementById('statusText').textContent = 'รัศมี '+Math.round(zoneDraft.circle.getRadius())+' เมตร — ปรับตัวเลขหรือกดยืนยัน "'+z.label+'"';
+  }
+  function makeZoneMoveHandle(rec){
+    const icon = L.divIcon({className:'', html:'<div class="sc-zone-move-handle" title="ลากเพื่อย้ายโซน">✥</div>', iconSize:[22,22], iconAnchor:[11,11]});
+    const handle = L.marker(rec.center, {icon:icon, draggable:true, bubblingMouseEvents:false, keyboard:false, zIndexOffset:500}).addTo(layerGroups.zones);
+    handle.bindTooltip('ลากเพื่อย้ายโซน', {direction:'top', offset:[0,-10]});
+    handle.on('dragstart', function(){ rec.circle.closePopup(); if(map.dragging) map.dragging.disable(); });
+    handle.on('drag', function(){ const pos = handle.getLatLng(); rec.center = pos; rec.circle.setLatLng(pos); });
+    handle.on('dragend', function(){ const pos = handle.getLatLng(); rec.center = pos; rec.circle.setLatLng(pos); if(map.dragging) map.dragging.enable(); refreshLegend(); });
+    return handle;
+  }
+  function finalizeZone(draft, z){
+    const id = 'zone_'+(idCounter++);
+    const rec = {id:id, typeId:z.id, name:z.label, center:draft.center, radius:draft.circle.getRadius(), circle:draft.circle};
+    draft.circle.setStyle({dashArray:null});
+    draft.circle.bindPopup(function(){ return buildZonePopup(rec); });
+    wireShapeClick(draft.circle);
+    rec.moveHandle = makeZoneMoveHandle(rec);
+    items.zones.push(rec);
+    refreshLegend(); updateCount();
+  }
+  function buildZonePopup(rec){
+    const div = document.createElement('div');
+    div.className = 'sc-popup';
+    div.innerHTML = '<input type="text" value="'+rec.name.replace(/"/g,'&quot;')+'" />'
+      +'<div class="sc-row" style="margin-bottom:6px;"><input type="number" min="5" value="'+Math.round(rec.radius)+'" data-role="radiusEdit" style="margin-bottom:0;"><button class="btn" data-act="setRadius">ตั้งรัศมี (ม.)</button></div>'
+      +'<div class="sc-row"><button class="btn" data-act="save">บันทึกชื่อ</button><button class="btn danger" data-act="del">ลบ</button></div>';
+    div.querySelector('[data-act=save]').onclick = function(){
+      rec.name = div.querySelector('input[type=text]').value || rec.name;
+      rec.circle.closePopup(); refreshLegend();
+    };
+    div.querySelector('[data-act=setRadius]').onclick = function(){
+      const v = parseFloat(div.querySelector('[data-role=radiusEdit]').value);
+      if(!isNaN(v) && v>0){ rec.radius = v; rec.circle.setRadius(v); }
+    };
+    div.querySelector('[data-act=del]').onclick = function(){
+      layerGroups.zones.removeLayer(rec.circle);
+      if(rec.moveHandle) layerGroups.zones.removeLayer(rec.moveHandle);
+      items.zones = items.zones.filter(function(x){return x.id!==rec.id;});
+      refreshLegend(); updateCount();
+    };
+    return div;
+  }
+  function cancelZoneDraft(){
+    if(!zoneDraft) return;
+    layerGroups.zones.removeLayer(zoneDraft.circle);
+    zoneDraft = null;
+    zoneDragging = false;
+    if(map.dragging) map.dragging.enable();
+    document.getElementById('radiusPanel').classList.add('hidden');
+    updateStatus();
+  }
+
+  /* ---------------- ROUTES ---------------- */
+  function routeStyle(typeId, draft){
+    const styles = {entry:{color:'#22c55e',dashArray:null}, exit:{color:'#38bdf8',dashArray:null}, closed:{color:'#ef4444',dashArray:'10 8'}, patient:{color:'#a855f7',dashArray:'5 7'}};
+    const st = styles[typeId] || styles.entry;
+    return {color:st.color, weight:typeId==='closed'?6:4, dashArray: draft ? '6 6' : st.dashArray};
+  }
+  function addRoutePoint(latlng, typeId){
+    if(!routeDraft){
+      routeDraft = {typeId:typeId, latlngs:[latlng], polyline: L.polyline([latlng], routeStyle(typeId, true)).addTo(layerGroups.routes), vmarkers:[]};
+    } else {
+      routeDraft.latlngs.push(latlng);
+      routeDraft.polyline.setLatLngs(routeDraft.latlngs);
+    }
+    const st = routeStyle(routeDraft.typeId);
+    const vm = L.circleMarker(latlng, {radius:4, color:st.color, fillColor:st.color, fillOpacity:1}).addTo(layerGroups.routes);
+    routeDraft.vmarkers.push(vm);
+  }
+  function finishRoute(){
+    if(!routeDraft || routeDraft.latlngs.length < 2){ cancelRouteDraft(); return; }
+    routeDraft.polyline.setStyle(routeStyle(routeDraft.typeId));
+    routeDraft.vmarkers.forEach(function(vm){ layerGroups.routes.removeLayer(vm); });
+    if(routeDraft.typeId==='closed' || routeDraft.typeId==='patient'){
+      completeRoute(routeDraft, routeDraft.typeId==='closed' ? 'closed' : 'both');
+      setMode(null);
+      return;
+    }
+    document.getElementById('routeDirPanel').classList.remove('hidden');
+    document.getElementById('statusText').textContent = 'เลือกทิศทางของเส้นทางนี้';
+  }
+  function bearingDeg(p1,p2){
+    const lat1=p1.lat*Math.PI/180, lat2=p2.lat*Math.PI/180;
+    const dLng=(p2.lng-p1.lng)*Math.PI/180;
+    const y=Math.sin(dLng)*Math.cos(lat2);
+    const x=Math.cos(lat1)*Math.sin(lat2)-Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
+    return (Math.atan2(y,x)*180/Math.PI + 360) % 360;
+  }
+  function directionText(direction, oneWayMin){
+    if(direction==='to')   return '➡ ขาไป (เกิดเหตุ → รพ.) · '+oneWayMin.toFixed(1)+' นาที';
+    if(direction==='from') return '⬅ ขากลับ (รพ. → เกิดเหตุ) · '+oneWayMin.toFixed(1)+' นาที';
+    return '🔁 ไป-กลับ · '+oneWayMin.toFixed(1)+' นาที/เที่ยว · '+(oneWayMin*2).toFixed(1)+' นาที รวม';
+  }
+  function buildRouteArrows(latlngs, direction){
+    const markers = [];
+    const n = latlngs.length;
+    if(direction==='both' || direction==='to'){
+      const deg = bearingDeg(latlngs[n-2], latlngs[n-1]);
+      markers.push(L.marker(latlngs[n-1], {icon:L.divIcon({className:'', html:'<div class="sc-arrow-ic" style="transform:rotate('+deg+'deg)">➤</div>', iconSize:[22,22], iconAnchor:[11,11]}), interactive:false}));
+    }
+    if(direction==='both' || direction==='from'){
+      const deg = bearingDeg(latlngs[1], latlngs[0]);
+      markers.push(L.marker(latlngs[0], {icon:L.divIcon({className:'', html:'<div class="sc-arrow-ic" style="transform:rotate('+deg+'deg)">➤</div>', iconSize:[22,22], iconAnchor:[11,11]}), interactive:false}));
+    }
+    markers.forEach(function(m){ m.addTo(layerGroups.routes); });
+    return markers;
+  }
+  function routeDistance(latlngs){
+    let d = 0;
+    for(let i=1;i<latlngs.length;i++) d += latlngs[i-1].distanceTo(latlngs[i]);
+    return d;
+  }
+  function completeRoute(draft, direction){
+    const distM = routeDistance(draft.latlngs);
+    const speed = parseFloat(document.getElementById('speedInput').value) || 30;
+    const oneWayMin = (distM/1000) / speed * 60;
+    const id = 'route_'+(idCounter++);
+    const routeLabels = {entry:'ทางเข้ารถฉุกเฉิน', exit:'ทางออกรถฉุกเฉิน', closed:'ถนนปิด', patient:'ทางเคลื่อนย้ายผู้ป่วย'};
+    const name = (routeLabels[draft.typeId] || 'เส้นทาง')+' '+(items.routes.length+1);
+    const mid = draft.latlngs[Math.floor(draft.latlngs.length/2)];
+    const labelIcon = L.divIcon({className:'', html:'<div class="sc-route-label">'+(direction==='closed' ? '⛔ ถนนปิด · '+(distM/1000).toFixed(2)+' กม' : (distM/1000).toFixed(2)+' กม · '+directionText(direction, oneWayMin))+'</div>', iconSize:null});
+    const label = L.marker(mid, {icon:labelIcon, interactive:false}).addTo(layerGroups.routes);
+    const arrows = buildRouteArrows(draft.latlngs, direction);
+    const rec = {id:id, name:name, typeId:draft.typeId || 'entry', latlngs:draft.latlngs, distM:distM, speed:speed, oneWayMin:oneWayMin, direction:direction, linkedHospitalName:null, polyline:draft.polyline, label:label, arrows:arrows};
+    rec.polyline.bindPopup(function(){ return buildRoutePopup(rec); });
+    wireShapeClick(rec.polyline);
+    items.routes.push(rec);
+    routeDraft = null;
+    refreshLegend(); updateCount();
+  }
+  function redrawRouteLabel(rec){
+    layerGroups.routes.removeLayer(rec.label);
+    rec.arrows.forEach(function(a){ layerGroups.routes.removeLayer(a); });
+    const mid = rec.latlngs[Math.floor(rec.latlngs.length/2)];
+    const labelIcon = L.divIcon({className:'', html:'<div class="sc-route-label">'+(rec.distM/1000).toFixed(2)+' กม · '+directionText(rec.direction, rec.oneWayMin)+'</div>', iconSize:null});
+    rec.label = L.marker(mid, {icon:labelIcon, interactive:false}).addTo(layerGroups.routes);
+    rec.arrows = buildRouteArrows(rec.latlngs, rec.direction);
+  }
+  function cancelRouteDraft(){
+    if(!routeDraft) return;
+    layerGroups.routes.removeLayer(routeDraft.polyline);
+    routeDraft.vmarkers.forEach(function(vm){ layerGroups.routes.removeLayer(vm); });
+    routeDraft = null;
+    document.getElementById('routeDirPanel').classList.add('hidden');
+  }
+  function buildRoutePopup(rec){
+    const div = document.createElement('div');
+    div.className = 'sc-popup';
+    div.innerHTML = '<input type="text" value="'+rec.name.replace(/"/g,'&quot;')+'" />'
+      +'<div style="font-size:10.5px;color:var(--ink-faint);margin:2px 0 8px;">'+(rec.distM/1000).toFixed(2)+' กม ทั้งเส้น ('+rec.speed+' km/h)</div>'
+      +'<div class="sc-row" style="margin-bottom:6px;"><select data-role="dirEdit">'
+      +   '<option value="both" '+(rec.direction==='both'?'selected':'')+'>🔁 ไป-กลับ</option>'
+      +   '<option value="to" '+(rec.direction==='to'?'selected':'')+'>➡ ขาไปเท่านั้น</option>'
+      +   '<option value="from" '+(rec.direction==='from'?'selected':'')+'>⬅ ขากลับเท่านั้น</option>'
+      +   '</select><input type="number" min="1" data-role="speedEdit" value="'+rec.speed+'" style="width:56px;"></div>'
+      +'<label style="font-size:10.5px;color:var(--ink-faint);">ผูกกับโรงพยาบาลปลายทาง (สำหรับคำนวณเวลา dispatch)</label>'
+      +'<select data-role="hospLink">'+hospitalSelectHtml(rec.linkedHospitalName)+'</select>'
+      +'<div class="sc-row"><button class="btn" data-act="save">บันทึก</button><button class="btn danger" data-act="del">ลบ</button></div>';
+    div.querySelector('[data-act=save]').onclick = function(){
+      rec.name = div.querySelector('input[type=text]').value || rec.name;
+      rec.direction = div.querySelector('[data-role=dirEdit]').value;
+      const sp = parseFloat(div.querySelector('[data-role=speedEdit]').value);
+      if(!isNaN(sp) && sp>0){ rec.speed = sp; rec.oneWayMin = (rec.distM/1000)/rec.speed*60; }
+      rec.linkedHospitalName = div.querySelector('[data-role=hospLink]').value || null;
+      redrawRouteLabel(rec);
+      rec.polyline.closePopup(); refreshLegend();
+    };
+    div.querySelector('[data-act=del]').onclick = function(){
+      layerGroups.routes.removeLayer(rec.polyline);
+      layerGroups.routes.removeLayer(rec.label);
+      rec.arrows.forEach(function(a){ layerGroups.routes.removeLayer(a); });
+      items.routes = items.routes.filter(function(x){return x.id!==rec.id;});
+      refreshLegend(); updateCount();
+    };
+    return div;
+  }
+
+  /* ---------------- LEGEND ---------------- */
+  function refreshLegend(){
+    const box = document.getElementById('legendList');
+    if(!box) return;
+    box.innerHTML = '';
+    const all = items.tents.map(function(x){ return Object.assign({},x,{kind:'tent'}); })
+      .concat(items.zones.map(function(x){ return Object.assign({},x,{kind:'zone'}); }))
+      .concat(items.routes.map(function(x){ return Object.assign({},x,{kind:'route'}); }));
+    if(all.length===0){
+      box.innerHTML = '<div class="sc-empty-note">ยังไม่มีรายการ — เลือกเครื่องมือด้านบนแล้วแตะบนแผนที่</div>';
+      return;
+    }
+    all.forEach(function(rec){
+      const row = document.createElement('div');
+      row.className='sc-legend-item';
+      let icon = '📍';
+      if(rec.kind==='tent'){ const tt=TENT_TYPES.find(function(t){return t.id===rec.typeId;}); icon = tt ? tentSvg(tt,20) : '📍'; }
+      if(rec.kind==='zone') icon = '⬤';
+      if(rec.kind==='route') icon = '🛣️';
+      row.innerHTML = '<span>'+icon+'</span><span class="sc-lname">'+esc(rec.name)+(rec.linkedHospitalName?' <span style="color:var(--sc-amber);">('+esc(rec.linkedHospitalName)+')</span>':'')+'</span><span class="sc-ldel">✕</span>';
+      row.querySelector('.sc-lname').onclick = function(){
+        const target = rec.kind==='tent' ? rec.latlng : (rec.kind==='zone' ? rec.center : rec.latlngs[0]);
+        map.setView(target, Math.max(map.getZoom(),17));
+        const layer = rec.kind==='tent' ? items.tents.find(function(x){return x.id===rec.id;}).marker
+                    : rec.kind==='zone' ? items.zones.find(function(x){return x.id===rec.id;}).circle
+                    : items.routes.find(function(x){return x.id===rec.id;}).polyline;
+        layer.openPopup(target);
+      };
+      row.querySelector('.sc-ldel').onclick = function(){
+        if(rec.kind==='tent'){
+          layerGroups.tents.removeLayer(items.tents.find(function(x){return x.id===rec.id;}).marker);
+          items.tents = items.tents.filter(function(x){return x.id!==rec.id;});
+        } else if(rec.kind==='zone'){
+          const zrec = items.zones.find(function(x){return x.id===rec.id;});
+          layerGroups.zones.removeLayer(zrec.circle);
+          if(zrec.moveHandle) layerGroups.zones.removeLayer(zrec.moveHandle);
+          items.zones = items.zones.filter(function(x){return x.id!==rec.id;});
+        } else {
+          const r = items.routes.find(function(x){return x.id===rec.id;});
+          layerGroups.routes.removeLayer(r.polyline);
+          layerGroups.routes.removeLayer(r.label);
+          (r.arrows||[]).forEach(function(a){ layerGroups.routes.removeLayer(a); });
+          items.routes = items.routes.filter(function(x){return x.id!==rec.id;});
+        }
+        refreshLegend(); updateCount();
+      };
+      box.appendChild(row);
+    });
+  }
+  function updateCount(){
+    const el = document.getElementById('countText');
+    if(el) el.textContent = (items.tents.length + items.zones.length + items.routes.length) + ' จุด';
+  }
+
+  /* ---------------- SERIALIZE / LOAD ---------------- */
+  function serialize(){
+    return {
+      center: map.getCenter(), zoom: map.getZoom(),
+      tents: items.tents.map(function(t){ return {id:t.id, typeId:t.typeId, name:t.name, lat:t.latlng.lat, lng:t.latlng.lng, linkedHospitalName:t.linkedHospitalName||null, redCap:t.redCap||0, yellowCap:t.yellowCap||0, greenCap:t.greenCap||0}; }),
+      zones: items.zones.map(function(z){ return {id:z.id, typeId:z.typeId, name:z.name, lat:z.center.lat, lng:z.center.lng, radius:z.radius}; }),
+      routes: items.routes.map(function(r){ return {id:r.id, name:r.name, typeId:r.typeId, speed:r.speed, direction:r.direction, oneWayMin:r.oneWayMin, distM:r.distM, linkedHospitalName:r.linkedHospitalName||null, points:r.latlngs.map(function(p){ return {lat:p.lat,lng:p.lng}; })}; })
+    };
+  }
+  function extractNum(id){
+    const m = /_(\d+)$/.exec(id||'');
+    return m ? parseInt(m[1],10) : 0;
+  }
+  function clearAll(){
+    layerGroups.tents.clearLayers();
+    layerGroups.zones.clearLayers();
+    layerGroups.routes.clearLayers();
+    items = {tents:[], zones:[], routes:[]};
+  }
+  function loadScenario(data){
+    clearAll();
+    if(data.center) map.setView([data.center.lat, data.center.lng], data.zoom||13);
+    (data.tents||[]).forEach(function(t){
+      const type = TENT_TYPES.find(function(x){return x.id===t.typeId;}) || TENT_TYPES[0];
+      const marker = L.marker([t.lat,t.lng], {icon: makeTentIcon(type), draggable:true});
+      const rec = {id:t.id, typeId:t.typeId, name:t.name, latlng:L.latLng(t.lat,t.lng), linkedHospitalName:t.linkedHospitalName||null, redCap:t.redCap||0, yellowCap:t.yellowCap||0, greenCap:t.greenCap||0};
+      marker.on('drag', function(){ rec.latlng = marker.getLatLng(); });
+      marker.on('dragend', function(){ refreshLegend(); });
+      marker.bindPopup(function(){ return buildTentPopup(rec, marker); });
+      wireShapeClick(marker);
+      marker.addTo(layerGroups.tents);
+      rec.marker = marker;
+      items.tents.push(rec);
+      idCounter = Math.max(idCounter, extractNum(t.id)+1);
+    });
+    (data.zones||[]).forEach(function(z){
+      const zt = ZONE_TYPES.find(function(x){return x.id===z.typeId;}) || ZONE_TYPES[0];
+      const circle = L.circle([z.lat,z.lng], {radius:z.radius, color:zt.color, fillColor:zt.fill, fillOpacity:.18, weight:2}).addTo(layerGroups.zones);
+      const rec = {id:z.id, typeId:z.typeId, name:z.name, center:L.latLng(z.lat,z.lng), radius:z.radius, circle:circle};
+      circle.bindPopup(function(){ return buildZonePopup(rec); });
+      wireShapeClick(circle);
+      rec.moveHandle = makeZoneMoveHandle(rec);
+      items.zones.push(rec);
+      idCounter = Math.max(idCounter, extractNum(z.id)+1);
+    });
+    (data.routes||[]).forEach(function(r){
+      const latlngs = r.points.map(function(p){ return L.latLng(p.lat,p.lng); });
+      const typeId = r.typeId || 'entry';
+      const polyline = L.polyline(latlngs, routeStyle(typeId)).addTo(layerGroups.routes);
+      const distM = routeDistance(latlngs);
+      const speed = r.speed || 30;
+      const oneWayMin = (distM/1000)/speed*60;
+      const direction = r.direction || 'both';
+      const mid = latlngs[Math.floor(latlngs.length/2)];
+      const labelIcon = L.divIcon({className:'', html:'<div class="sc-route-label">'+(direction==='closed' ? '⛔ ถนนปิด · '+(distM/1000).toFixed(2)+' กม' : (distM/1000).toFixed(2)+' กม · '+directionText(direction, oneWayMin))+'</div>', iconSize:null});
+      const label = L.marker(mid, {icon:labelIcon, interactive:false}).addTo(layerGroups.routes);
+      const arrows = buildRouteArrows(latlngs, direction);
+      const rec = {id:r.id, name:r.name, typeId:typeId, latlngs:latlngs, distM:distM, speed:speed, oneWayMin:oneWayMin, direction:direction, linkedHospitalName:r.linkedHospitalName||null, polyline:polyline, label:label, arrows:arrows};
+      polyline.bindPopup(function(){ return buildRoutePopup(rec); });
+      wireShapeClick(polyline);
+      items.routes.push(rec);
+      idCounter = Math.max(idCounter, extractNum(r.id)+1);
+    });
+    refreshLegend(); updateCount();
+  }
+
+  /* ---------------- FILE IMPORT/EXPORT ---------------- */
+  function exportFile(){
+    const blob = new Blob([JSON.stringify(serialize(), null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mci-scene-scenario.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  function triggerImport(){
+    const el = document.getElementById('fileInput');
+    if(el) el.click();
+  }
+
+  /* ---------------- MOUNT / DESTROY ---------------- */
+  function wireMapEvents(){
+    map.on('click', function(e){
+      if(suppressNextMapClick){ suppressNextMapClick=false; return; }
+      handleMapAction(e.latlng);
+    });
+    map.on('dblclick', function(e){
+      if(mode && mode.indexOf('route:')===0 && routeDraft) finishRoute();
+    });
+    map.on('mousedown', function(e){
+      if(mode && mode.indexOf('zone:')===0){
+        L.DomEvent.preventDefault(e.originalEvent);
+        beginZonePointer(mode.split(':')[1], e.latlng);
+      }
+    });
+    map.on('mousemove', function(e){ resizeZonePointer(e.latlng); });
+    map.on('mouseup', function(){ endZonePointer(); });
+    map.getContainer().addEventListener('mouseleave', function(){ endZonePointer(); });
+  }
+  function wireRouteDirPanel(){
+    document.querySelectorAll('#routeDirPanel [data-dir]').forEach(function(btn){
+      btn.onclick = function(){
+        if(!routeDraft) return;
+        completeRoute(routeDraft, btn.dataset.dir);
+        document.getElementById('routeDirPanel').classList.add('hidden');
+        setMode(null);
+      };
+    });
+    document.getElementById('routeDirCancel').onclick = function(){
+      document.getElementById('routeDirPanel').classList.add('hidden');
+      cancelRouteDraft();
+      setMode(null);
+    };
+  }
+  function wireFileInput(){
+    const fileInput = document.getElementById('fileInput');
+    if(!fileInput) return;
+    fileInput.onchange = function(e){
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(){
+        try{
+          const data = JSON.parse(reader.result);
+          loadScenario(data);
+        }catch(err){ alert('ไฟล์ไม่ถูกต้อง: '+err.message); }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    };
+  }
+
+
+  function clearNearbyHospitals(){
+    if(nearbyHospitalLayer) nearbyHospitalLayer.clearLayers();
+    const status=document.getElementById('nearbyHospitalStatus');
+    if(status) status.textContent='';
+  }
+  async function showNearbyHospitals(){
+    if(!map || !nearbyHospitalLayer) return;
+    const status=document.getElementById('nearbyHospitalStatus');
+    const center=map.getCenter();
+    const radius=10000;
+    if(status) status.textContent='กำลังค้นหาโรงพยาบาลในรัศมี 10 กม...';
+    nearbyHospitalLayer.clearLayers();
+    // overpass-api.de alone is unreliable (rate limits / outages), so try a
+    // short list of public Overpass mirrors in order and use the first that
+    // actually answers, instead of failing the whole search on one host.
+    const OVERPASS_ENDPOINTS=[
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass.openstreetmap.ru/api/interpreter',
+      'https://overpass.private.coffee/api/interpreter'
+    ];
+    try{
+      const query='[out:json][timeout:20];(node["amenity"="hospital"](around:'+radius+','+center.lat+','+center.lng+');way["amenity"="hospital"](around:'+radius+','+center.lat+','+center.lng+');relation["amenity"="hospital"](around:'+radius+','+center.lat+','+center.lng+'););out center tags;';
+      let json=null, lastErr=null;
+      for(const endpoint of OVERPASS_ENDPOINTS){
+        try{
+          const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},body:'data='+encodeURIComponent(query)});
+          if(!res.ok) throw new Error('HTTP '+res.status);
+          json=await res.json();
+          break;
+        }catch(e){ lastErr=e; json=null; }
+      }
+      if(!json) throw lastErr||new Error('ทุก endpoint ไม่ตอบสนอง');
+      const seen=new Set(); let count=0;
+      (json.elements||[]).forEach(function(x){
+        const lat=x.lat!=null?x.lat:(x.center&&x.center.lat), lng=x.lon!=null?x.lon:(x.center&&x.center.lon);
+        if(lat==null||lng==null) return;
+        const name=(x.tags&&(x.tags['name:th']||x.tags.name||x.tags['name:en']))||'โรงพยาบาล';
+        const key=name+'|'+Number(lat).toFixed(5)+'|'+Number(lng).toFixed(5); if(seen.has(key)) return; seen.add(key); count++;
+        const icon=L.divIcon({className:'sc-nearby-hospital',html:'<div class="sc-nearby-pin">🏥</div>',iconSize:[30,30],iconAnchor:[15,15]});
+        const marker=L.marker([lat,lng],{icon:icon,interactive:true}).addTo(nearbyHospitalLayer);
+        marker.bindTooltip(name,{direction:'top'});
+        marker.bindPopup('<div class="sc-popup"><b>'+esc(name)+'</b><div style="font-size:10.5px;color:var(--ink-faint);margin:5px 0 8px;">โรงพยาบาลใกล้เคียงจาก OpenStreetMap</div><button class="btn primary" data-nearby-place="1">วางโรงพยาบาลนี้</button></div>');
+        marker.on('popupopen',function(ev){
+          const btn=ev.popup.getElement()&&ev.popup.getElement().querySelector('[data-nearby-place]');
+          if(btn) btn.onclick=function(){ placeTent('hospital',L.latLng(lat,lng)); const rec=items.tents[items.tents.length-1]; if(rec){rec.name=name;rec.linkedHospitalName=name;rec.marker.openPopup();} marker.closePopup(); refreshLegend(); };
+        });
+      });
+      if(status) status.textContent=count?'พบโรงพยาบาล '+count+' แห่ง — กดไอคอนเพื่อวางลงในเกม':'ไม่พบโรงพยาบาลในรัศมี 10 กม.';
+    }catch(e){ console.error(e); if(status) status.textContent='ค้นหาโรงพยาบาลใกล้เคียงไม่สำเร็จ กรุณาลองใหม่'; }
+  }
+
+
+  async function searchPlace(){
+    const q = (document.getElementById('mapSearchInput')||{}).value || '';
+    const box = document.getElementById('mapSearchResults');
+    if(!q.trim() || !box) return;
+    box.innerHTML = '<div class="sc-search-item">กำลังค้นหา...</div>';
+    try{
+      const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6&accept-language=th&q='+encodeURIComponent(q);
+      const res = await fetch(url, {headers:{'Accept':'application/json'}});
+      const data = await res.json();
+      box.innerHTML = data.length ? '' : '<div class="sc-search-item">ไม่พบสถานที่</div>';
+      data.forEach(function(x){
+        const el=document.createElement('div'); el.className='sc-search-item'; el.textContent=x.display_name;
+        el.onclick=function(){ map.setView([Number(x.lat),Number(x.lon)],17); box.innerHTML=''; };
+        box.appendChild(el);
+      });
+    }catch(e){ box.innerHTML='<div class="sc-search-item">ค้นหาไม่สำเร็จ กรุณาลองใหม่</div>'; }
+  }
+  function wireSearch(){
+    const btn=document.getElementById('mapSearchBtn'), inp=document.getElementById('mapSearchInput'), nearbyBtn=document.getElementById('nearbyHospitalBtn'), clearBtn=document.getElementById('clearNearbyHospitalBtn');
+    const panel=document.querySelector('#scRoot .sc-search');
+    if(panel){ L.DomEvent.disableClickPropagation(panel); L.DomEvent.disableScrollPropagation(panel); }
+    if(btn) btn.onclick=searchPlace;
+    if(inp) inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){e.preventDefault();searchPlace();} });
+    if(nearbyBtn) nearbyBtn.onclick=showNearbyHospitals;
+    if(clearBtn) clearBtn.onclick=clearNearbyHospitals;
+  }
+
+  function mount(opts){
+    hospitalOptions = (opts.hospitals||[]).map(function(h){ return h.name; });
+    idCounter = 1; mode=null; routeDraft=null; zoneDraft=null; zoneDragging=false; suppressNextMapClick=false; skipSnapshotOnDestroy=false;
+
+    map = L.map('map', {zoomControl:false}).setView([18.286464, 99.506049], 15); // Lampang Hospital default
+    L.control.zoom({position:'bottomright'}).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+    layerGroups = {tents:L.layerGroup().addTo(map), zones:L.layerGroup().addTo(map), routes:L.layerGroup().addTo(map)};
+    nearbyHospitalLayer=L.layerGroup().addTo(map);
+    items = {tents:[], zones:[], routes:[]};
+
+    wireMapEvents();
+    wireZonePanelOnce();
+    wireRouteDirPanel();
+    wireFileInput();
+    wireSearch();
+    buildTools();
+
+    const dataToLoad = lastSnapshot || opts.data;
+    if(dataToLoad) loadScenario(dataToLoad);
+    else updateCount();
+
+    setTimeout(function(){ if(map) map.invalidateSize(); }, 60);
+  }
+
+  function destroy(){
+    if(!map) return;
+    if(!skipSnapshotOnDestroy){ try{ lastSnapshot = serialize(); }catch(e){} }
+    skipSnapshotOnDestroy=false;
+    map.remove();
+    map=null; layerGroups=null; nearbyHospitalLayer=null; mode=null; routeDraft=null; zoneDraft=null;
+  }
+
+  return {mount:mount, destroy:destroy, serialize:function(){ return map ? serialize() : lastSnapshot; }, reset:function(){ lastSnapshot=null; skipSnapshotOnDestroy=true; if(map){ clearAll(); if(nearbyHospitalLayer) nearbyHospitalLayer.clearLayers(); map.setView([18.286464,99.506049],15); refreshLegend(); updateCount(); } }, exportFile:exportFile, triggerImport:triggerImport};
+})();
+</script>
+<script>
+/* ============================================================
+   READ-ONLY SCENE VIEWER (window.SceneViewer)
+   A second, independent Leaflet instance — completely separate from
+   window.SceneApp's editor map — used to show the GM-published scene
+   to non-GM stations (COMMANDER / TRANSFER / DISPATCH) plus live
+   ambulance markers. No editing, no dragging, no marker placement,
+   no edit popups.
+   Mounted into the PERSISTENT #sceneViewerMap container (a sibling of
+   #app, outside the innerHTML that render() rebuilds), so it survives
+   the main app's frequent re-renders without being torn down/recreated
+   every poll — mount() is only called once per station session; after
+   that, setData()/setVehicles() update the existing map in place.
+============================================================ */
+window.SceneViewer = (function(){
+  'use strict';
+
+  const TENT_META = {
+    incident:  {color:'#ef4444', emoji:'🔥'},
+    primary:   {color:'#3b82f6', emoji:'⛺'},
+    secondary: {color:'#8b5cf6', emoji:'⛺'},
+    red:       {color:'#ef4444', emoji:'🔴'},
+    yellow:    {color:'#facc15', emoji:'🟡'},
+    green:     {color:'#22c55e', emoji:'🟢'},
+    black:     {color:'#111827', emoji:'⚫'},
+    loading:   {color:'#a855f7', emoji:'🚑'},
+    parking:   {color:'#38bdf8', emoji:'🅿️'},
+    hospital:  {color:'#16a34a', emoji:'🏥'},
+    command:   {color:'#f59e0b', emoji:'🧭'},
+    decon:     {color:'#06b6d4', emoji:'🚿'}
+  };
+  const ZONE_META = {
+    hot:  {color:'#e5484d', fill:'#e5484d'},
+    warm: {color:'#f0c020', fill:'#f0c020'},
+    cold: {color:'#3fb56f', fill:'#3fb56f'}
+  };
+  const ROUTE_META = {
+    entry:  {color:'#22c55e'},
+    exit:   {color:'#3b82f6'},
+    closed: {color:'#ef4444'},
+    patient:{color:'#a855f7'}
+  };
+
+  let map=null, layers=null, mounted=false, lastDataSig=null;
+  const vehicleMarkers = {};
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function tentIcon(typeId){
+    const meta = TENT_META[typeId] || {color:'#6b7280', emoji:'📍'};
+    const html = '<div style="background:'+meta.color+';width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #111827;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4);">'
+      +'<span style="transform:rotate(45deg);font-size:13px;">'+meta.emoji+'</span></div>';
+    return L.divIcon({className:'sv-tent-icon', html:html, iconSize:[28,28], iconAnchor:[14,26]});
+  }
+  function vehicleIcon(label){
+    const html = '<div style="background:#fff;border:2px solid #a855f7;border-radius:6px;padding:1px 6px;font-size:11px;font-weight:700;color:#111827;box-shadow:0 1px 4px rgba(0,0,0,.35);white-space:nowrap;">🚑 '+esc(label)+'</div>';
+    return L.divIcon({className:'sv-vehicle-icon', html:html, iconSize:null, iconAnchor:[20,10]});
+  }
+
+  function clearSceneLayers(){
+    if(!layers) return;
+    layers.tents.clearLayers();
+    layers.zones.clearLayers();
+    layers.routes.clearLayers();
+  }
+  function drawScene(data){
+    clearSceneLayers();
+    if(!data) return;
+    (data.tents||[]).forEach(function(t){
+      if(t.lat==null || t.lng==null) return;
+      const meta = TENT_META[t.typeId] || {};
+      const marker = L.marker([t.lat,t.lng], {icon:tentIcon(t.typeId), interactive:true, keyboard:false});
+      marker.bindTooltip(esc(t.name||meta.label||t.typeId), {direction:'top', offset:[0,-22]});
+      marker.addTo(layers.tents);
+    });
+    (data.zones||[]).forEach(function(z){
+      if(z.lat==null || z.lng==null) return;
+      const meta = ZONE_META[z.typeId] || {color:'#888', fill:'#888'};
+      L.circle([z.lat,z.lng], {radius:z.radius, color:meta.color, fillColor:meta.fill, fillOpacity:.15, weight:2, interactive:false}).addTo(layers.zones);
+    });
+    (data.routes||[]).forEach(function(r){
+      const meta = ROUTE_META[r.typeId] || {color:'#94a3b8'};
+      const pts = (r.points||[]).filter(function(p){ return p && p.lat!=null && p.lng!=null; }).map(function(p){ return [p.lat,p.lng]; });
+      if(pts.length>1) L.polyline(pts, {color:meta.color, weight:4, dashArray: r.typeId==='closed'?'6 6':null, interactive:false}).addTo(layers.routes);
+    });
+  }
+
+  function mount(opts){
+    if(mounted) destroy();
+    const container = opts && opts.container;
+    if(!container || typeof L==='undefined') return;
+    map = L.map(container, {zoomControl:false, attributionControl:false}).setView([18.286464,99.506049],15);
+    L.control.zoom({position:'bottomright'}).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+    layers = {tents:L.layerGroup().addTo(map), zones:L.layerGroup().addTo(map), routes:L.layerGroup().addTo(map), vehicles:L.layerGroup().addTo(map)};
+    mounted = true;
+    lastDataSig = null;
+    const data = opts.data;
+    if(data){
+      drawScene(data);
+      lastDataSig = JSON.stringify({tents:data.tents, zones:data.zones, routes:data.routes});
+      if(data.center) map.setView([data.center.lat, data.center.lng], data.zoom||13);
+    }
+    setTimeout(function(){ if(map) map.invalidateSize(); }, 60);
+  }
+
+  /* Cheap no-op guard: only redraws tents/zones/routes when the published
+     scene actually changed, so calling this on every ~1s render tick (to
+     keep vehicles live) doesn't also thrash the static layers. */
+  function setData(data){
+    if(!mounted || !map || !data) return;
+    const sig = JSON.stringify({tents:data.tents, zones:data.zones, routes:data.routes});
+    if(sig===lastDataSig) return;
+    lastDataSig = sig;
+    drawScene(data);
+  }
+
+  function pointAtFraction(points, frac){
+    if(!points || !points.length) return null;
+    if(points.length===1) return L.latLng(points[0].lat, points[0].lng);
+    const latlngs = points.map(function(p){ return L.latLng(p.lat,p.lng); });
+    const segLens=[]; let total=0;
+    for(let i=1;i<latlngs.length;i++){ const d=latlngs[i-1].distanceTo(latlngs[i]); segLens.push(d); total+=d; }
+    if(total===0) return latlngs[0];
+    let target = Math.max(0,Math.min(1,frac))*total;
+    for(let i=0;i<segLens.length;i++){
+      if(target<=segLens[i] || i===segLens.length-1){
+        const t = segLens[i]>0 ? Math.min(1,target/segLens[i]) : 0;
+        const a=latlngs[i], b=latlngs[i+1];
+        return L.latLng(a.lat+(b.lat-a.lat)*t, a.lng+(b.lng-a.lng)*t);
+      }
+      target -= segLens[i];
+    }
+    return latlngs[latlngs.length-1];
+  }
+
+  /* vehicles: STATE.vehicles array. elapsed: elapsedMinutes(gc) from the
+     caller (kept as a plain number so this module has no dependency on
+     the main app's globals). Draws one marker per vehicle currently BUSY
+     with a dispatched trip (busyStartElapsed/outboundPath present),
+     interpolated along the real outbound/return polyline. */
+  function setVehicles(vehicles, elapsed){
+    if(!mounted || !map || !layers) return;
+    const active = {};
+    (vehicles||[]).forEach(function(v){
+      const hasTrip = v && v.busyStartElapsed!=null && v.outboundPath && v.outboundPath.length && v.busyUntilElapsed!=null;
+      if(!hasTrip || !(elapsed < v.busyUntilElapsed) || !(elapsed >= v.busyStartElapsed)) return;
+      const t = elapsed - v.busyStartElapsed;
+      const outMin = Number(v.outboundMin)||0, retMin = Number(v.returnMin)||0;
+      let frac, path;
+      if(t <= outMin){
+        frac = outMin>0 ? t/outMin : 1;
+        path = v.outboundPath;
+      } else {
+        frac = retMin>0 ? (t-outMin)/retMin : 1;
+        path = (v.returnPath && v.returnPath.length) ? v.returnPath : v.outboundPath.slice().reverse();
+      }
+      frac = Math.max(0, Math.min(1, frac));
+      const pos = pointAtFraction(path, frac);
+      if(!pos) return;
+      active[v.name]=true;
+      if(vehicleMarkers[v.name]) vehicleMarkers[v.name].setLatLng(pos);
+      else vehicleMarkers[v.name] = L.marker(pos, {icon:vehicleIcon(v.name), interactive:false, keyboard:false}).addTo(layers.vehicles);
+    });
+    Object.keys(vehicleMarkers).forEach(function(name){
+      if(!active[name]){ layers.vehicles.removeLayer(vehicleMarkers[name]); delete vehicleMarkers[name]; }
+    });
+  }
+
+  function destroy(){
+    if(!map) return;
+    try{ map.remove(); }catch(e){}
+    map=null; layers=null; mounted=false; lastDataSig=null;
+    Object.keys(vehicleMarkers).forEach(function(k){ delete vehicleMarkers[k]; });
+  }
+
+  return {mount:mount, destroy:destroy, setData:setData, setVehicles:setVehicles};
+})();
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 <script>
@@ -384,7 +1419,11 @@ const DEFAULT_VEHICLES = [
   {name:'ALS_1',type:'ALS'},{name:'ALS_2',type:'ALS'}
 ].map(function(v){ return Object.assign({busyUntilElapsed:0, busyHospital:null}, v); });
 
-const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, endedElapsed:null, maxGameMin:60, capacity:{RED:2,YELLOW:2,GREEN:2}};
+const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, endedElapsed:null, maxGameMin:60, capacity:{RED:2,YELLOW:2,GREEN:2}, transitSpeeds:{walkKmh:4, carryKmh:3}, mapSettings:{useMap:true, distSecondary:true, distTreatment:true, distTransfer:true}};
+
+/* Scene Setup (pre-triage map phase) — published:false + skipped:false blocks
+   game start until GM either publishes a scene or explicitly skips it. */
+const DEFAULT_SCENE = {published:false, publishedAt:null, skipped:false, data:null};
 
 const STATIONS = [
   {id:'GM', label:'GM · ผู้ควบคุมเกม', icon:'🎛️'},
@@ -410,7 +1449,8 @@ const TRIAGE_COLORS = ['RED','YELLOW','GREEN','BLACK'];
 const DB_ROOT = 'mci_sim_v1';
 const KEYS = {
   gc:'gc', cases:'cases', resources:'resources', hospitals:'hospitals',
-  vehicles:'vehicles', patients:'patients', roster:'roster', seed:'seeded'
+  vehicles:'vehicles', patients:'patients', roster:'roster', seed:'seeded',
+  scene:'scene'
 };
 let fbReady = false;
 let fbDb = null;
@@ -473,8 +1513,16 @@ async function kvRootTransaction(mutator){
     // exists on the server, causing false "ไม่พบผู้ป่วย"/etc. aborts.
     // Force a fresh read of the exact same path first so the transaction's
     // update function always starts from real data.
-    await ref.once('value');
+    const initialSnap = await ref.once('value');
+    const initialRoot = initialSnap.val();
     const result = await ref.transaction(function(root){
+      // The compat SDK can still invoke a transaction's first local pass with
+      // null even immediately after once('value').  Falling back to {} here
+      // made the mutator see patients=[] and abort with a false
+      // "ไม่พบผู้ป่วย".  Seed that first pass with the freshly-read snapshot;
+      // if another client has changed the root, Firebase detects the conflict
+      // and invokes this function again with the newest server value.
+      if(root==null) root = initialRoot;
       root = root || {};
       const decoded = {};
       Object.keys(root).forEach(function(k){
@@ -520,6 +1568,142 @@ function findCase(cases, id){
   const target = normU(id);
   for(let i=0;i<cases.length;i++){ if(String(cases[i].id).toUpperCase()===target) return cases[i]; }
   return null;
+}
+
+/* ============================================================
+   3b) SCENE-DISTANCE HELPERS (IN_TRANSIT mechanic)
+   Tent-to-tent walking/carrying time is computed from real map
+   coordinates published in the Scene Setup module (straight-line,
+   since these are short in-scene legs, not road routes). If the
+   scene has no such tents (skipped, or GM didn't place that type),
+   distance falls back to 0 — identical to old instant-transfer
+   behaviour, so old saves / skip-scene games are unaffected.
+============================================================ */
+function haversineKm(lat1, lng1, lat2, lng2){
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+            Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+            Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R * 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function sceneTent(typeId){
+  const data = STATE.scene && STATE.scene.data;
+  if(!data || !data.tents) return null;
+  return data.tents.find(function(t){ return t.typeId===typeId; }) || null;
+}
+/* Returns real ambulance travel time (minutes, one-way) to a hospital, or
+   null if nothing is linked yet — callers fall back to hospital.distanceMin.
+   Priority:
+   1) A route explicitly linked to this hospital (most accurate — real
+      road distance at the speed the GM set for that route).
+   2) A hospital tent linked to this hospital but with no route drawn to it
+      yet — straight-line distance from the scene's Loading/incident/command
+      point, at a fallback ambulance speed. This is what makes "linking the
+      hospital tent" alone actually do something, instead of silently no-op'ing
+      like it did before. */
+const AMBULANCE_FALLBACK_KMH = 40;
+function routeMinutes(r){
+  let mins = Number(r && r.oneWayMin);
+  if(!isFinite(mins) && r && r.points && r.points.length>1){
+    let km=0;
+    for(let i=1;i<r.points.length;i++) km += haversineKm(r.points[i-1].lat,r.points[i-1].lng,r.points[i].lat,r.points[i].lng);
+    mins = (km/(Number(r.speed)||30))*60;
+  }
+  return isFinite(mins) ? mins : null;
+}
+/* Returns separate outbound and return travel times. Routes marked "to"
+   are used only for scene → hospital, routes marked "from" only for
+   hospital → scene, and "both" may be used for either leg. Missing legs
+   fall back to straight-line map distance rather than copying the other leg. */
+/* Returns {min, points} for the fastest linked route in the given leg
+   direction ('to'/'from'), or the straight-line hub↔hospital fallback if
+   no route covers that leg. "both"-direction routes are reused for either
+   leg; their points are reversed for the "from" (return) leg so the
+   ambulance visually retraces the same line back to the scene. */
+function sceneRouteTravelTimes(hospitalName){
+  const data = STATE.scene && STATE.scene.data;
+  if(!data) return null;
+  const routes = (data.routes||[]).filter(function(r){ return r.linkedHospitalName===hospitalName; });
+  const tents = data.tents || [];
+  const hospTent = tents.find(function(t){ return t.typeId==='hospital' && (t.linkedHospitalName===hospitalName || t.name===hospitalName); });
+  const hub = tents.find(function(t){ return t.typeId==='loading'; })
+           || tents.find(function(t){ return t.typeId==='incident'; })
+           || tents.find(function(t){ return t.typeId==='command'; });
+  let fallbackMin=null, fallbackOutPath=null, fallbackRetPath=null;
+  if(hospTent && hub){
+    fallbackMin=(haversineKm(hub.lat,hub.lng,hospTent.lat,hospTent.lng)/AMBULANCE_FALLBACK_KMH)*60;
+    fallbackOutPath=[{lat:hub.lat,lng:hub.lng},{lat:hospTent.lat,lng:hospTent.lng}];
+    fallbackRetPath=[{lat:hospTent.lat,lng:hospTent.lng},{lat:hub.lat,lng:hub.lng}];
+  }
+  function bestFor(leg){
+    const candidates=routes.filter(function(r){ return r.direction===leg || r.direction==='both'; })
+      .map(function(r){ return {min:routeMinutes(r), route:r}; })
+      .filter(function(x){ return x.min!=null; });
+    if(!candidates.length){
+      if(fallbackMin==null) return null;
+      return {min:fallbackMin, points: leg==='to' ? fallbackOutPath : fallbackRetPath};
+    }
+    candidates.sort(function(a,b){ return a.min-b.min; });
+    const chosen = candidates[0];
+    let points = (chosen.route.points||[]).slice();
+    if(chosen.route.direction==='both' && leg==='from') points = points.slice().reverse();
+    return {min:chosen.min, points:points};
+  }
+  const out=bestFor('to');
+  const ret=bestFor('from');
+  if(!out && !ret) return null;
+  return {
+    outboundMin: out ? out.min : 0,
+    returnMin: ret ? ret.min : 0,
+    outboundPath: out ? out.points : (fallbackOutPath||[]),
+    returnPath: ret ? ret.points : (fallbackRetPath||[])
+  };
+}
+/* Public helper matching the shape used by dispatchSend/SceneViewer:
+   {outboundMin, returnMin, outboundPath, returnPath} or null if the scene
+   has nothing linked to this hospital yet. */
+function sceneRouteMinutesTo(hospitalName){
+  const t=sceneRouteTravelTimes(hospitalName);
+  if(!t) return null;
+  return {outboundMin:t.outboundMin, returnMin:t.returnMin, outboundPath:t.outboundPath, returnPath:t.returnPath};
+}
+const TX_ZONE_TENT_TYPE = {RED:'red', YELLOW:'yellow', GREEN:'green'};
+function mapSettings(){
+  return (STATE.gc && STATE.gc.mapSettings) || DEFAULT_GC.mapSettings;
+}
+/* settingKey ('distSecondary' | 'distTreatment') lets the GM turn off travel
+   time for that specific leg even while the map itself is still in use.
+   If the map is off entirely, every leg is instant regardless. */
+function transitMinutes(fromTypeId, toTypeId, canWalk, settingKey){
+  const ms = mapSettings();
+  if(!ms.useMap) return 0;
+  if(settingKey && !ms[settingKey]) return 0;
+  const a = sceneTent(fromTypeId), b = sceneTent(toTypeId);
+  if(!a || !b) return 0;
+  const distKm = haversineKm(a.lat, a.lng, b.lat, b.lng);
+  const speeds = (STATE.gc && STATE.gc.transitSpeeds) || DEFAULT_GC.transitSpeeds;
+  const speed = canWalk==='yes' ? (speeds.walkKmh||4) : (speeds.carryKmh||3);
+  if(!speed) return 0;
+  return (distKm/speed)*60;
+}
+/* Deterministic, poll-safe promotion of patients whose transit window has passed. */
+function resolveTransits(patients, elapsed){
+  let changed = false;
+  const next = patients.map(function(p){
+    if(p.stage!=='TRANSIT' || !p.transit) return p;
+    if(elapsed < p.transit.arriveElapsed) return p;
+    changed = true;
+    if(p.transit.toStage==='SECONDARY'){
+      return Object.assign({}, p, {stage:'SECONDARY', transit:null});
+    }
+    if(p.transit.toStage==='TX'){
+      return Object.assign({}, p, {stage:'TX', txZone:p.transit.txZone, transit:null});
+    }
+    return Object.assign({}, p, {transit:null});
+  });
+  return {changed:changed, patients:next};
 }
 
 function elapsedMinutes(gc){
@@ -590,7 +1774,12 @@ function canStartSequential(p, slotIndex, elapsed){
   return txSlotStatus(prev, elapsed)==='SUCCESS';
 }
 function countZoneInProgress(patients, zone, elapsed){
-  return patients.filter(function(p){ return p.stage==='TX' && p.txZone===zone && hasAnyTxInProgress(p, elapsed); }).length;
+  // A timer may still be running after the case has passed its survival limit.
+  // That case must release its treatment staff immediately.
+  return patients.filter(function(p){
+    return p.stage==='TX' && p.txZone===zone &&
+      !patientIsDead(p,elapsed) && hasAnyTxInProgress(p, elapsed);
+  }).length;
 }
 function treatmentStaffCount(zone){
   const station = 'TX_'+zone;
@@ -652,6 +1841,7 @@ const STATE = {
   vehicles: DEFAULT_VEHICLES.slice(),
   patients: [],
   roster: {},
+  scene: JSON.parse(JSON.stringify(DEFAULT_SCENE)),
   ready:false,
   gmTab:'control',
   toasts:[],
@@ -683,6 +1873,7 @@ async function ensureSeeded(){
   await kvSet(KEYS.gc, DEFAULT_GC);
   await kvSet(KEYS.patients, []);
   await kvSet(KEYS.roster, {});
+  await kvSet(KEYS.scene, DEFAULT_SCENE);
   await kvSet(KEYS.seed, true);
 }
 
@@ -694,10 +1885,11 @@ async function refreshAll(){
     kvGet(KEYS.hospitals, DEFAULT_HOSPITALS),
     kvGet(KEYS.vehicles, DEFAULT_VEHICLES),
     kvGet(KEYS.patients, []),
-    kvGet(KEYS.roster, {})
+    kvGet(KEYS.roster, {}),
+    kvGet(KEYS.scene, DEFAULT_SCENE)
   ]);
   let gc=results[0], cases=results[1], resources=results[2], hospitals=results[3],
-      vehicles=results[4], patients=results[5], roster=results[6];
+      vehicles=results[4], patients=results[5], roster=results[6], scene=results[7];
 
   if(gc.status==='RUNNING' && gc.maxGameMin>0){
     const elapsed = elapsedMinutes(gc);
@@ -707,8 +1899,17 @@ async function refreshAll(){
     }
   }
 
+  /* Promote patients whose IN_TRANSIT window has elapsed. Every client computes
+     the same deterministic result from (patients, gc, scene) and writes it back,
+     so this is safe under polling + last-write-wins (see kvSet). */
+  if(gc.status==='RUNNING'){
+    const elapsed = elapsedMinutes(gc);
+    const resolved = resolveTransits(patients, elapsed);
+    if(resolved.changed){ patients = resolved.patients; kvSet(KEYS.patients, patients); }
+  }
+
   STATE.gc=gc; STATE.cases=cases; STATE.resources=resources; STATE.hospitals=hospitals;
-  STATE.vehicles=vehicles; STATE.patients=patients; STATE.roster=roster;
+  STATE.vehicles=vehicles; STATE.patients=patients; STATE.roster=roster; STATE.scene=scene;
 
   if(STATE.me.name){
     const entry = roster[STATE.me.name];
@@ -801,7 +2002,12 @@ async function gmRemovePlayer(name){
 /* ============================================================
    7) GM GAME CONTROL ACTIONS
 ============================================================ */
+function sceneReady(){
+  if(!mapSettings().useMap) return true;
+  return !!(STATE.scene && (STATE.scene.published || STATE.scene.skipped));
+}
 async function gmStartGame(){
+  if(!sceneReady()){ toast('กรุณาเผยแพร่หรือข้ามขั้นตอน Scene Setup ก่อนเริ่มเกม','err'); return; }
   const gc = Object.assign({}, STATE.gc, {status:'RUNNING', startTime:Date.now(), endedElapsed:null});
   await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
   toast('เริ่มเกมแล้ว — แจกหน้าที่และเริ่มรับผู้ป่วยได้เลย','ok');
@@ -813,20 +2019,34 @@ async function gmEndGame(){
   toast('จบเกมแล้ว','ok');
 }
 async function gmResetGame(){
-  const gc = Object.assign({}, DEFAULT_GC, {capacity:Object.assign({},STATE.gc.capacity), maxGameMin:STATE.gc.maxGameMin});
+  const gc = Object.assign({}, DEFAULT_GC, {capacity:Object.assign({},STATE.gc.capacity), maxGameMin:STATE.gc.maxGameMin, transitSpeeds:Object.assign({},STATE.gc.transitSpeeds), mapSettings:Object.assign({},DEFAULT_GC.mapSettings,STATE.gc.mapSettings)});
   await kvSet(KEYS.gc, gc);
   await kvSet(KEYS.patients, []);
-  const hospitals = STATE.hospitals.map(function(h){ return Object.assign({}, h, {redUsed:0, yellowUsed:0, greenUsed:0}); });
+  const resources = DEFAULT_RESOURCES.map(function(r){ return Object.assign({}, r); });
+  await kvSet(KEYS.resources, resources);
+  const hospitals = DEFAULT_HOSPITALS.map(function(h){ return Object.assign({}, h); });
   await kvSet(KEYS.hospitals, hospitals);
-  const vehicles = STATE.vehicles.map(function(v){ return Object.assign({}, v, {busyUntilElapsed:0, busyHospital:null}); });
+  await kvSet(KEYS.scene, DEFAULT_SCENE);
+  if(window.SceneApp && window.SceneApp.reset) window.SceneApp.reset();
+  const vehicles = STATE.vehicles.map(function(v){ return Object.assign({}, v, {busyUntilElapsed:0, busyHospital:null, busyStartElapsed:null, outboundMin:null, returnMin:null, outboundPath:null, returnPath:null}); });
   await kvSet(KEYS.vehicles, vehicles);
-  STATE.gc=gc; STATE.patients=[]; STATE.hospitals=hospitals; STATE.vehicles=vehicles;
+  STATE.gc=gc; STATE.patients=[]; STATE.resources=resources; STATE.hospitals=hospitals; STATE.vehicles=vehicles; STATE.scene=JSON.parse(JSON.stringify(DEFAULT_SCENE));
+  if(window.SceneViewer && window.SceneViewer.setData) window.SceneViewer.setData(null);
   render();
   toast('รีเซ็ตเกมเรียบร้อย พร้อมเริ่มใหม่','ok');
 }
 async function gmUpdateConfig(patch){
   const gc = Object.assign({}, STATE.gc, patch);
   await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
+}
+async function gmSetMapSetting(key, value){
+  // Applied instantly (optimistic UI) so the toggle can't get silently
+  // reverted by the next 2.5s poll landing before the GM hits any save
+  // button — there is no save button for these, the switch itself is the action.
+  const gc = Object.assign({}, STATE.gc, {mapSettings: Object.assign({}, mapSettings(), (function(){ const o={}; o[key]=value; return o; })())});
+  STATE.gc = gc;
+  render(true);
+  await kvSet(KEYS.gc, gc);
 }
 async function gmAddCase(caseObj){
   let ok=true;
@@ -886,6 +2106,7 @@ async function mutatePatients(mutatorFn){
    9) PRIMARY TRIAGE ACTIONS
 ============================================================ */
 async function primaryRegister(idRaw){
+  if(!sceneReady()){ toast('ยังเข้ารับผู้ป่วยไม่ได้ — รอ GM เผยแพร่หรือข้ามขั้นตอน Scene Setup ก่อน','err'); return; }
   const id = normU(idRaw);
   if(!id){ toast('กรอก Patient_ID ก่อน','err'); return; }
   const caseObj = findCase(STATE.cases, id);
@@ -921,7 +2142,12 @@ async function primarySend(id, dest){
     if(!p.primary){ toast('ต้องเลือก Primary Triage ก่อน','err'); return null; }
     const order=maxOrder(patients,'primaryOrder')+1;
     let next=Object.assign({},p,{primaryTime:elapsed,primaryOrder:order,primaryDest:dest,events:(p.events||[]).concat([{t:elapsed,type:'PRIMARY_'+dest,by:STATE.me.name||''}])});
-    next=dest==='DISCHARGE'?Object.assign(next,{stage:'CLOSED',closedReason:'DISCHARGE_PRIMARY',dischargeTime:elapsed}):Object.assign(next,{stage:'SECONDARY'});
+    if(dest==='DISCHARGE'){
+      next=Object.assign(next,{stage:'CLOSED',closedReason:'DISCHARGE_PRIMARY',dischargeTime:elapsed});
+    }else{
+      const durMin=transitMinutes('primary','secondary',effectiveCanWalk(p),'distSecondary');
+      next=Object.assign(next,{stage:'TRANSIT',transit:{fromStage:'PRIMARY',toStage:'SECONDARY',startElapsed:elapsed,arriveElapsed:elapsed+durMin}});
+    }
     const copy=patients.slice();copy[idx]=next;return copy;
   });
 }
@@ -944,7 +2170,13 @@ async function secondarySend(id, dest){
     if(dest==='TX'&&p.secondary==='BLACK'){toast('BLACK ไม่มีโซนรักษา ต้องส่ง Discharge เท่านั้น','err');return null;}
     const order=maxOrder(patients,'secondaryOrder')+1;
     let next=Object.assign({},p,{secondaryTime:elapsed,secondaryOrder:order,secondaryDest:dest,events:(p.events||[]).concat([{t:elapsed,type:'SECONDARY_'+dest,by:STATE.me.name||''}])});
-    next=dest==='DISCHARGE'?Object.assign(next,{stage:'CLOSED',closedReason:'DISCHARGE_SECONDARY',dischargeTime:elapsed}):Object.assign(next,{stage:'TX',txZone:p.secondary});
+    if(dest==='DISCHARGE'){
+      next=Object.assign(next,{stage:'CLOSED',closedReason:'DISCHARGE_SECONDARY',dischargeTime:elapsed});
+    }else{
+      const zoneTentType=TX_ZONE_TENT_TYPE[p.secondary]||'red';
+      const durMin=transitMinutes('secondary',zoneTentType,effectiveCanWalk(p),'distTreatment');
+      next=Object.assign(next,{stage:'TRANSIT',transit:{fromStage:'SECONDARY',toStage:'TX',txZone:p.secondary,startElapsed:elapsed,arriveElapsed:elapsed+durMin}});
+    }
     const copy=patients.slice();copy[idx]=next;return copy;
   });
 }
@@ -956,13 +2188,29 @@ async function reserveResourceItem(item){
   if(!fbReady) return {ok:false, reason:'ไม่สามารถเชื่อมต่อฐานข้อมูลได้'};
   try{
     const ref=fbDb.ref(DB_ROOT+'/'+KEYS.resources);
+    // Same caching issue as kvRootTransaction (see comment there): Firebase's
+    // transaction() runs its update function against whatever is *locally
+    // cached* for this exact path, which can be null if this client has never
+    // read it directly. When that happens the function below aborts on a
+    // false "โหลดข้อมูลทรัพยากรไม่สำเร็จ" without ever contacting the server.
+    // Force a fresh read first so the transaction always starts from real data.
+    await ref.once('value');
     let durationSec=5;
     let fail='';
     const result=await ref.transaction(function(raw){
       let list;
       try{ list=typeof raw==='string'?JSON.parse(raw):raw; }
       catch(e){ list=null; }
-      if(!Array.isArray(list)){ fail='โหลดข้อมูลทรัพยากรไม่สำเร็จ'; return; }
+      // A previously seeded game can still have a missing `resources` child
+      // (for example after importing/resetting an older save).  The UI uses
+      // DEFAULT_RESOURCES as its fallback, so initialise the Firebase child
+      // from the same defaults instead of aborting with a misleading load
+      // error. If the server already has data, Firebase will rerun this
+      // transaction with that current value before committing.
+      if(list==null){
+        list=DEFAULT_RESOURCES.map(function(r){return Object.assign({},r);});
+      }
+      if(!Array.isArray(list)){ fail='รูปแบบข้อมูลทรัพยากรไม่ถูกต้อง กรุณาให้ GM Reset game'; return; }
       const ri=list.findIndex(function(r){return r.item===item;});
       if(ri<0){ fail='ไม่พบทรัพยากร '+item; return; }
       if(Number(list[ri].stock)<=0){ fail=item+' หมด กรุณาขอ GM เพิ่ม'; return; }
@@ -986,6 +2234,7 @@ async function refundResourceItem(item){
   if(!fbReady) return;
   try{
     const ref=fbDb.ref(DB_ROOT+'/'+KEYS.resources);
+    await ref.once('value'); // see note in reserveResourceItem
     await ref.transaction(function(raw){
       let list;
       try{ list=typeof raw==='string'?JSON.parse(raw):raw; }
@@ -1006,8 +2255,8 @@ async function txStartItem(id, slotIndex, item){
   slotIndex=Number(slotIndex);
   const elapsed=elapsedMinutes(STATE.gc);
 
-  // เวอร์ชันเรียบง่าย: ไม่ตรวจและไม่หัก stock
-  // อ่าน/เขียน patients โดยตรงเหมือนเวอร์ชันที่ Treatment ใช้งานได้
+  // ตรวจสอบผู้ป่วยและกำลังคนก่อน แล้วจอง stock ด้วย Firebase transaction
+  // เพื่อป้องกันผู้เล่นหลายคนใช้ทรัพยากรชิ้นสุดท้ายพร้อมกัน
   const patients=await kvGet(KEYS.patients,[]);
   const idx=patients.findIndex(function(p){return normU(p.id)===id;});
   if(idx<0){toast('ไม่พบผู้ป่วย #'+id,'err');return;}
@@ -1030,21 +2279,51 @@ async function txStartItem(id, slotIndex, item){
     toast('ไม่มี Staff ว่างในโซน '+p.txZone+' ('+inProgress+'/'+capacity+')','err');return;
   }
 
-  const resource=STATE.resources.find(function(r){return r.item===item;});
-  const durationSec=resource ? (Number(resource.durationSec)||5) : 5;
-  const tx=(p.tx||[null,null,null]).slice();
-  tx[slotIndex]={item:item,startedAt:elapsed,durationSec:durationSec};
+  // Commit the patient timer and stock deduction together. This prevents a
+  // partial save and also prevents two players taking the final item.
+  let fail='';
+  let committedPatients=null;
+  let committedResources=null;
+  const result=await kvRootTransaction(function(root){
+    const livePatients=Array.isArray(root[KEYS.patients])?root[KEYS.patients]:[];
+    const liveResources=Array.isArray(root[KEYS.resources])
+      ? root[KEYS.resources]
+      : DEFAULT_RESOURCES.map(function(r){return Object.assign({},r);});
+    const pi=livePatients.findIndex(function(x){return normU(x.id)===id;});
+    if(pi<0){fail='ไม่พบผู้ป่วย #'+id;return null;}
+    const liveP=livePatients[pi];
+    if(computeTxStatus(liveP,caseObj,elapsed)==='DEAD'){fail='ผู้ป่วยเสียชีวิตแล้วและต้องค้างใน Treatment';return null;}
+    if(!canStartSequential(liveP,slotIndex,elapsed)){fail='ต้องทำ Treatment ลำดับก่อนหน้าให้สำเร็จก่อน';return null;}
+    if(hasAnyTxInProgress(liveP,elapsed)){fail='มี Treatment กำลังดำเนินการอยู่';return null;}
+    const ri=liveResources.findIndex(function(r){return r.item===item;});
+    if(ri<0){fail='ไม่พบทรัพยากร '+item;return null;}
+    if(Number(liveResources[ri].stock)<=0){fail=item+' หมด กรุณาขอ GM เพิ่ม';return null;}
 
-  patients[idx]=Object.assign({},p,{
-    tx:tx,
-    txStartTime:p.txStartTime==null?elapsed:p.txStartTime,
-    events:(p.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])
+    const durationSec=Number(liveResources[ri].durationSec)||5;
+    const tx=(liveP.tx||[null,null,null]).slice();
+    tx[slotIndex]={item:item,startedAt:elapsed,durationSec:durationSec};
+    const nextPatients=livePatients.slice();
+    nextPatients[pi]=Object.assign({},liveP,{
+      tx:tx,
+      txStartTime:liveP.txStartTime==null?elapsed:liveP.txStartTime,
+      events:(liveP.events||[]).concat([{t:elapsed,type:'TX_START '+item,by:STATE.me.name||''}])
+    });
+    const nextResources=liveResources.slice();
+    nextResources[ri]=Object.assign({},liveResources[ri],{stock:Number(liveResources[ri].stock)-1});
+    root[KEYS.patients]=nextPatients;
+    root[KEYS.resources]=nextResources;
+    committedPatients=nextPatients;
+    committedResources=nextResources;
+    return root;
   });
+  if(!result.committed){
+    toast(fail||'เริ่ม Treatment ไม่สำเร็จ กรุณาลองอีกครั้ง','err');
+    await refreshAll();
+    return;
+  }
 
-  const saved=await kvSet(KEYS.patients,patients);
-  if(!saved){toast('บันทึก Treatment ไม่สำเร็จ','err');return;}
-
-  STATE.patients=patients;
+  STATE.patients=committedPatients;
+  STATE.resources=committedResources;
   toast('เริ่ม Treatment: '+item,'ok');
   render();
 }
@@ -1147,9 +2426,31 @@ async function dispatchSend(vehicleName){
   }
 
   const hospObj = STATE.hospitals.find(function(h){ return h.name===hospital; });
-  const distance = hospObj ? hospObj.distanceMin : 5;
+  const ms = mapSettings();
+  const manualOutbound = Number(hospObj && (hospObj.outboundMin!=null?hospObj.outboundMin:hospObj.distanceMin)) || 5;
+  const manualReturn = Number(hospObj && (hospObj.returnMin!=null?hospObj.returnMin:hospObj.distanceMin)) || manualOutbound;
+  // Map off: no scene data to compute a route from, so always fall back to
+  // whatever distance the GM configured manually in "ทรัพยากร & รพ.".
+  // Map on: the GM's distTransfer toggle decides whether travel time counts
+  // at all (real map route if available, else the same manual fallback), or
+  // is skipped entirely (instant transfer) when they've turned it off.
+  const sceneTimes = (ms.useMap && ms.distTransfer) ? sceneRouteTravelTimes(hospital) : null;
+  const outboundMin = !ms.useMap ? manualOutbound : (!ms.distTransfer ? 0 : (sceneTimes ? sceneTimes.outboundMin : manualOutbound));
+  const returnMin = !ms.useMap ? manualReturn : (!ms.distTransfer ? 0 : (sceneTimes ? sceneTimes.returnMin : manualReturn));
+  const outboundPath = (sceneTimes && sceneTimes.outboundPath) ? sceneTimes.outboundPath : [];
+  const returnPath = (sceneTimes && sceneTimes.returnPath) ? sceneTimes.returnPath : [];
+  const busyStartElapsed = elapsed;
+  const totalTripMin = outboundMin + returnMin;
   await kvUpdate(KEYS.vehicles, DEFAULT_VEHICLES, function(vs){
-    return vs.map(function(v){ return v.name===vehicleName ? Object.assign({}, v, {busyUntilElapsed: elapsed+distance*2, busyHospital:hospital}) : v; });
+    return vs.map(function(v){ return v.name===vehicleName ? Object.assign({}, v, {
+      busyStartElapsed: busyStartElapsed,
+      outboundMin: outboundMin,
+      returnMin: returnMin,
+      outboundPath: outboundPath,
+      returnPath: returnPath,
+      busyUntilElapsed: busyStartElapsed+outboundMin+returnMin,
+      busyHospital: hospital
+    }) : v; });
   });
 
   STATE.vehicles = await kvGet(KEYS.vehicles, DEFAULT_VEHICLES);
@@ -1188,11 +2489,27 @@ async function gmRenameHospital(oldName,newName,patch){
 /* ============================================================
    15) RENDER CORE (shell, join, waiting, topbar, toasts)
 ============================================================ */
+/* The embedded Scene Setup module owns a live Leaflet map instance that must
+   NOT be destroyed by innerHTML replacement while GM is actively working in
+   it (dragging pins etc. isn't caught by the [data-preserve] focus-guard
+   below, since map drags don't focus a form control). So once mounted, we
+   skip full re-renders entirely while GM stays on that tab; we only rebuild
+   when the tab actually changes (which calls render(true) and, in the else
+   branch below, tears the map down cleanly first). */
+let sceneMounted = false;
+/* Stations that get the read-only live Scene Map panel. GM also gets it
+   (optional, per spec) whenever GM isn't already on the Scene Setup editor
+   tab, since that tab has its own live map. */
+const SCENE_VIEWER_STATIONS = ['COMMANDER','TRANSFER','DISPATCH'];
+let sceneViewerMounted = false;
 function render(force){
+  const onSceneTab = STATE.ready && STATE.me.station==='GM' && STATE.gmTab==='scene';
+  if(onSceneTab && sceneMounted){ updateSceneViewerPanel(); return; }
+
   const snap = JSON.stringify({gc:STATE.gc, cases:STATE.cases, resources:STATE.resources, hospitals:STATE.hospitals,
     vehicles:STATE.vehicles, patients:STATE.patients, roster:STATE.roster, me:STATE.me, gmTab:STATE.gmTab, toasts:STATE.toasts,
     fbConnected:STATE.fbConnected});
-  if(!force && snap===STATE._snapshot) return;
+  if(!force && snap===STATE._snapshot){ updateSceneViewerPanel(); return; }
   STATE._snapshot = snap;
 
   const active = document.activeElement;
@@ -1212,6 +2529,49 @@ function render(force){
       try{ el.setSelectionRange(preserved.selStart, preserved.selEnd); }catch(e){}
     }
   }
+
+  if(onSceneTab){
+    sceneMounted = true;
+    window.SceneApp && window.SceneApp.mount({
+      container: document.getElementById('scRoot'),
+      data: STATE.scene && STATE.scene.data,
+      hospitals: STATE.hospitals
+    });
+  }else if(sceneMounted){
+    sceneMounted = false;
+    window.SceneApp && window.SceneApp.destroy();
+  }
+
+  updateSceneViewerPanel();
+}
+
+/* Shows/hides + mounts/destroys/updates the persistent #sceneViewerHost
+   panel. The panel's DOM node lives outside #app (untouched by the
+   app.innerHTML rebuild above), so mount() only runs once when a relevant
+   station first becomes active; every other call here is a cheap
+   setData()/setVehicles() update — this is what lets vehicle markers
+   animate smoothly on every ~1s render tick without the map flickering
+   or re-initializing. */
+function updateSceneViewerPanel(){
+  const host = document.getElementById('sceneViewerHost');
+  if(!host) return;
+  const st = STATE.me && STATE.me.station;
+  const wantsIt = STATE.ready && st && sceneReady() && STATE.scene && STATE.scene.data && (
+    SCENE_VIEWER_STATIONS.indexOf(st)>-1 || (st==='GM' && STATE.gmTab!=='scene')
+  );
+  if(!wantsIt){
+    if(sceneViewerMounted){ sceneViewerMounted=false; window.SceneViewer && window.SceneViewer.destroy(); }
+    host.classList.add('hidden');
+    return;
+  }
+  host.classList.remove('hidden');
+  if(!sceneViewerMounted){
+    sceneViewerMounted = true;
+    window.SceneViewer && window.SceneViewer.mount({container: document.getElementById('sceneViewerMap'), data: STATE.scene.data});
+  }else{
+    window.SceneViewer && window.SceneViewer.setData(STATE.scene.data);
+  }
+  window.SceneViewer && window.SceneViewer.setVehicles(STATE.vehicles, elapsedMinutes(STATE.gc));
 }
 
 function buildView(){
@@ -1339,9 +2699,14 @@ function fmtClock(elapsedMin){
   return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
 }
 
+function viewSceneWaiting(){
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">รอ GM</div><h1>🗺️ กำลังเตรียมที่เกิดเหตุ</h1></div></div>'
+    + '<div class="empty"><div class="big">⏳</div>GM กำลังจัดวางผังที่เกิดเหตุ (Scene Setup) — เมื่อ GM กด "เผยแพร่" หรือ "ข้ามขั้นตอน" หน้าสถานีของคุณจะเปิดใช้งานให้เอง ไม่ต้องรีเฟรชหน้า</div>';
+}
 function viewStationBody(){
   const st = STATE.me.station;
   if(st==='GM') return viewGM();
+  if(st!=='GM' && !sceneReady()) return viewSceneWaiting();
   if(st==='COMMANDER') return viewCommander();
   if(st==='PRIMARY') return viewPrimary();
   if(st==='SECONDARY') return viewSecondary();
@@ -1405,9 +2770,14 @@ function statusBadgeForTx(status){
 /* ============================================================
    17) PRIMARY VIEW
 ============================================================ */
+function transitBadgeHtml(p, elapsed){
+  const remain=Math.max(0,round1((p.transit.arriveElapsed-elapsed)*60));
+  return '<div class="subrow"><span class="badge wait"><span class="pulse-dot"></span> กำลังเคลื่อนย้าย เหลือ '+remain+'s</span></div>';
+}
 function viewPrimary(){
   const elapsed=elapsedMinutes(STATE.gc);
   const queue=STATE.patients.filter(function(p){return p.stage==='PRIMARY';}).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+  const transiting=STATE.patients.filter(function(p){return p.stage==='TRANSIT'&&p.transit&&p.transit.fromStage==='PRIMARY';});
   const cards=queue.map(function(p){
     const dead=patientIsDead(p,elapsed);
     return '<div class="patient-card stripe-'+(p.primary||'')+'">'
@@ -1415,7 +2785,14 @@ function viewPrimary(){
       +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Primary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Primary triage</span>'+triageButtonsHtml(p.id,'primary',p.primary,'primarySet')+'</div><div class="subrow"><button class="btn sm primary" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="SECONDARY" '+(!p.primary?'disabled':'')+'>ส่งต่อ Secondary Triage →</button><button class="btn sm" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+(!p.primary?'disabled':'')+'>Discharge</button></div>')
       +'</div>';
   }).join('');
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🩺 Primary Triage</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div><div class="card"><label class="label">กรอก Patient_ID จากบัตรเคสผู้ป่วย</label><div class="flexrow"><input type="text" id="primaryIdInput" data-preserve class="flex1" placeholder="เช่น 25" data-enter-act="primaryRegister"><button class="btn primary" data-act="primaryRegister">รับผู้ป่วยใหม่</button></div></div><div class="section-gap">'+(cards||'<div class="empty"><div class="big">🩹</div>ยังไม่มีผู้ป่วยรอ</div>')+'</div>';
+  const transitCards=transiting.map(function(p){
+    const dead=patientIsDead(p,elapsed);
+    return '<div class="patient-card stripe-'+(p.primary||'')+'">'
+      +'<div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div>'
+      +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — เสียชีวิตระหว่างเคลื่อนย้าย</div>':transitBadgeHtml(p,elapsed))
+      +'</div>';
+  }).join('');
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🩺 Primary Triage</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div><div class="card"><label class="label">กรอก Patient_ID จากบัตรเคสผู้ป่วย</label><div class="flexrow"><input type="text" id="primaryIdInput" data-preserve class="flex1" placeholder="เช่น 25" data-enter-act="primaryRegister"><button class="btn primary" data-act="primaryRegister">รับผู้ป่วยใหม่</button></div></div><div class="section-gap">'+(cards||'<div class="empty"><div class="big">🩹</div>ยังไม่มีผู้ป่วยรอ</div>')+transitCards+'</div>';
 }
 
 /* ============================================================
@@ -1424,12 +2801,19 @@ function viewPrimary(){
 function viewSecondary(){
   const elapsed=elapsedMinutes(STATE.gc);
   const queue=STATE.patients.filter(function(p){return p.stage==='SECONDARY';}).sort(function(a,b){return (a.primaryOrder||0)-(b.primaryOrder||0);});
+  const transiting=STATE.patients.filter(function(p){return p.stage==='TRANSIT'&&p.transit&&p.transit.fromStage==='SECONDARY';});
   const cards=queue.map(function(p){
     const dead=patientIsDead(p,elapsed), isBlack=p.secondary==='BLACK';
     return '<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Primary: '+triageBadge(p.primary)+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div>'
       +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Secondary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Secondary triage</span>'+triageButtonsHtml(p.id,'secondary',p.secondary,'secondarySet')+'</div><div class="subrow">'+(isBlack?'':'<button class="btn sm primary" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="TX" '+(!p.secondary?'disabled':'')+'>ส่งต่อ Treatment →</button>')+'<button class="btn sm" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+(!p.secondary?'disabled':'')+'>Discharge</button></div>')+'</div>';
   }).join('');
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🔎 Secondary Triage</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+(cards||'<div class="empty"><div class="big">🔎</div>ยังไม่มีผู้ป่วย</div>');
+  const transitCards=transiting.map(function(p){
+    const dead=patientIsDead(p,elapsed);
+    return '<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div>'
+      +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — เสียชีวิตระหว่างเคลื่อนย้าย</div>':transitBadgeHtml(p,elapsed))
+      +'</div>';
+  }).join('');
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🔎 Secondary Triage</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+(cards||'<div class="empty"><div class="big">🔎</div>ยังไม่มีผู้ป่วย</div>')+transitCards;
 }
 
 /* ============================================================
@@ -1461,7 +2845,7 @@ function viewTx(zone){
     const status=computeTxStatus(p,findCase(STATE.cases,p.id),elapsed),dead=status==='DEAD',busy=hasAnyTxInProgress(p,elapsed);
     return '<div class="patient-card stripe-'+zone+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+statusBadgeForTx(status)+'</div>'
       +'<div class="subrow"><span>Primary: '+triageBadge(p.primary)+'</span><span>Secondary: '+triageBadge(p.secondary)+'</span></div>'
-      +'<div style="margin-top:10px;"><label class="label">Diagnosis</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="4" placeholder="พิมพ์ diagnosis แยกบรรทัด เช่น&#10;Tension pneumothorax&#10;Hemorrhagic shock">'+esc(p.txNote||'')+'</textarea></div>'
+      +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส </label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน diagnosis และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
       +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+[0,1,2].map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:6px;">ระบบจะไม่บอกว่ารักษาถูกหรือครบตามเวลาหรือไม่ — ทีมต้องตัดสินใจส่งต่อเอง ผลจะปรากฏเมื่อผู้ป่วยถึงโรงพยาบาล/Debrief</div>')+'</div>';
   }).join('');
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา</div></div><div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'+(cards||'<div class="empty"><div class="big">🛏️</div>ยังไม่มีผู้ป่วย</div>');
@@ -1470,15 +2854,6 @@ function viewTx(zone){
 /* ============================================================
    20) TRANSFER DESK VIEW
 ============================================================ */
-function formatDx(value){
-  const lines=norm(value).split(/\r?\n/).map(function(line){
-    line=line.trim();
-    if(!line) return '';
-    return line.charAt(0)==='#' ? esc(line) : '# '+esc(line);
-  }).filter(Boolean);
-  return lines.length ? lines.join('<br>') : '# —';
-}
-
 function viewTransfer(){
   const elapsed=elapsedMinutes(STATE.gc);
   const queue=STATE.patients.filter(function(p){return p.stage==='TRANSFER';}).sort(function(a,b){return (a.transferOrder||0)-(b.transferOrder||0);});
@@ -1487,15 +2862,8 @@ function viewTransfer(){
     const dead=patientIsDead(p,elapsed);
     const vehicles=p.vehicle&&!baseVehicles.some(function(v){return v.name===p.vehicle;})?baseVehicles.concat(STATE.vehicles.filter(function(v){return v.name===p.vehicle;})):baseVehicles;
     const vehicleOptions=['<option value="">— เลือกรถ —</option>'].concat(vehicles.map(function(v){return '<option value="'+esc(v.name)+'">'+esc(v.name)+' ('+v.type+')</option>';})).join('');
-    const txDone=(p.tx||[]).filter(Boolean).map(function(x){
-      return '- '+esc(x.item);
-    }).join('<br>')||'- ไม่มี';
-    return '<div class="patient-card stripe-'+(p.secondary||'')+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Secondary: '+triageBadge(p.secondary)+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div><div class="card" style="padding:10px;margin-bottom:10px;">'
-      +'<div><b>Dx:</b></div>'
-      +'<div style="margin-top:5px;line-height:1.7;">'+formatDx(p.txNote)+'</div>'
-      +'<div style="margin-top:12px;"><b>Tx:</b></div>'
-      +'<div class="hint" style="margin-top:5px;line-height:1.7;">'+txDone+'</div>'
-      +'</div>'
+    const txDone=(p.tx||[]).filter(Boolean).map(function(x){return esc(x.item)+' ('+(txSlotStatus(x,elapsed)==='SUCCESS'?'สำเร็จ':'กำลังทำ')+')';}).join(', ')||'ไม่มี';
+    return '<div class="patient-card stripe-'+(p.secondary||'')+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Secondary: '+triageBadge(p.secondary)+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div><div class="card" style="padding:10px;margin-bottom:10px;"><div><b>รายละเอียดจาก Treatment:</b> '+esc(p.txNote||'—')+'</div><div class="hint">Treatment ที่ทำ: '+txDone+'</div></div>'
       +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Transfer</div>':'<div class="grid cols-2"><div><span class="label">Vehicle</span><select data-act="transferSet" data-pid="'+esc(p.id)+'" data-field="vehicle">'+vehicleOptions.replace('value="'+esc(p.vehicle||'###')+'"','value="'+esc(p.vehicle||'###')+'" selected')+'</select></div><div><span class="label">Hospital</span><select data-act="transferSet" data-pid="'+esc(p.id)+'" data-field="hospital">'+hospitalOptions.replace('value="'+esc(p.hospital||'###')+'"','value="'+esc(p.hospital||'###')+'" selected')+'</select></div></div>')+'</div>';
   }).join('');
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🚑 Transfer Desk</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+(cards||'<div class="empty"><div class="big">🚑</div>ยังไม่มีผู้ป่วยรอส่งต่อ</div>');
@@ -1569,6 +2937,7 @@ function viewDischargeLog(embedded){
 ============================================================ */
 const GM_TABS = [
   {id:'control', label:'Game Control'},
+  {id:'scene', label:'🗺️ Scene Setup'},
   {id:'roster', label:'Roster & หน้าที่'},
   {id:'cases', label:'ชุดโจทย์ (Cases)'},
   {id:'resources', label:'ทรัพยากร & รพ.'},
@@ -1579,12 +2948,16 @@ const GM_TABS = [
 ];
 
 function viewGM(){
-  const tabsHtml = GM_TABS.map(function(t){
+  const useMap = mapSettings().useMap;
+  const visibleTabs = GM_TABS.filter(function(t){ return t.id!=='scene' || useMap; });
+  if(STATE.gmTab==='scene' && !useMap) STATE.gmTab='control';
+  const tabsHtml = visibleTabs.map(function(t){
     return '<div class="tab'+(STATE.gmTab===t.id?' active':'')+'" data-act="gmTab" data-tab="'+t.id+'">'+t.label+'</div>';
   }).join('');
 
   let body = '';
   if(STATE.gmTab==='control') body = gmTabControl();
+  else if(STATE.gmTab==='scene') body = gmTabScene();
   else if(STATE.gmTab==='roster') body = gmTabRoster();
   else if(STATE.gmTab==='cases') body = gmTabCases();
   else if(STATE.gmTab==='resources') body = gmTabResources();
@@ -1606,6 +2979,11 @@ function gmTabControl(){
   const deadCount = STATE.patients.filter(function(p){return p.closedReason && p.closedReason.indexOf('DEAD')===0;}).length;
   const acceptedCount = STATE.patients.filter(function(p){return p.closedReason==='TRANSFER_ACCEPTED';}).length;
 
+  const scene = STATE.scene || DEFAULT_SCENE;
+  const sceneOk = sceneReady();
+  const useMap = mapSettings().useMap;
+  const sceneStatusLabel = !useMap ? '🚫 ปิดใช้ Map — ไม่ต้องตั้ง Scene, เริ่มเกมได้ทันที'
+    : scene.skipped ? '⏭️ ข้ามขั้นตอนแล้ว' : scene.published ? '✅ เผยแพร่ผังแล้ว' : '⚠️ ยังไม่ได้ตั้งค่า Scene';
   return ''
   + '<div class="grid cols-4">'
   +   statCard('ผู้ป่วยทั้งหมด', totalPatients)
@@ -1615,8 +2993,9 @@ function gmTabControl(){
   + '</div>'
   + '<div class="card section-gap">'
   +   '<h3>ควบคุมเกม</h3>'
+  +   '<div class="hint" style="margin-bottom:8px;">สถานะ Scene Setup: <b>'+sceneStatusLabel+'</b>'+((sceneOk||!useMap)?'':' — ไปที่แท็บ "Scene Setup" เพื่อเผยแพร่หรือข้ามขั้นตอนก่อนเริ่มเกม')+'</div>'
   +   '<div class="flexrow">'
-  +     '<button class="btn primary" data-act="gmStart" '+(gc.status==='RUNNING'?'disabled':'')+'>▶️ เริ่มเกม</button>'
+  +     '<button class="btn primary" data-act="gmStart" '+((gc.status==='RUNNING'||!sceneOk)?'disabled':'')+'>▶️ เริ่มเกม</button>'
   +     '<button class="btn" data-act="gmEnd" '+(gc.status!=='RUNNING'?'disabled':'')+'>⏹ จบเกม</button>'
   +     '<button class="btn danger" data-act="gmReset">🔄 รีเซ็ตเกม</button>'
   +   '</div>'
@@ -1625,15 +3004,82 @@ function gmTabControl(){
   +   '<h3>ตั้งค่าเกม</h3>'
   +   '<div class="grid cols-4">'
   +     '<div><label class="label">Max Game (นาที)</label><input type="number" id="cfgMaxMin" value="'+gc.maxGameMin+'"></div>'
+  +     '<div><label class="label">ความเร็วเดิน (km/h)</label><input type="number" step="0.5" id="cfgWalkKmh" value="'+((gc.transitSpeeds&&gc.transitSpeeds.walkKmh)||4)+'"></div>'
+  +     '<div><label class="label">ความเร็วหาม/เข็น (km/h)</label><input type="number" step="0.5" id="cfgCarryKmh" value="'+((gc.transitSpeeds&&gc.transitSpeeds.carryKmh)||3)+'"></div>'
   +     '<div><label class="label">Treatment RED</label><div class="pill"><b>'+treatmentStaffCount('RED')+'</b> คน (ตาม Roster)</div></div>'
   +     '<div><label class="label">Treatment YELLOW</label><div class="pill"><b>'+treatmentStaffCount('YELLOW')+'</b> คน (ตาม Roster)</div></div>'
   +     '<div><label class="label">Treatment GREEN</label><div class="pill"><b>'+treatmentStaffCount('GREEN')+'</b> คน (ตาม Roster)</div></div>'
   +   '</div>'
   +   '<button class="btn primary" data-act="gmSaveConfig" style="margin-top:12px;">บันทึกการตั้งค่า</button>'
+  + '</div>'
+  + '<div class="card section-gap">'
+  +   '<h3>แผนที่ & ระยะทาง</h3>'
+  +   '<div class="hint" style="margin-bottom:10px;">สลับแล้วมีผลทันที ไม่ต้องกดบันทึก — ปิด "ใช้ Map" แล้วทุกช่วงจะไม่มีเวลาเดินทาง ยกเว้นระยะทางไป รพ. (Transfer) จะใช้ค่าที่ตั้งเองในแท็บ "ทรัพยากร &amp; รพ." แทน</div>'
+  +   '<div class="grid cols-4">'
+  +     toggleRow('cfgUseMap','ใช้ Map เล่น',useMap,false)
+  +     toggleRow('cfgDistSecondary','ระยะทางไป Secondary Triage',mapSettings().distSecondary,!useMap)
+  +     toggleRow('cfgDistTreatment','ระยะทางไป Treatment',mapSettings().distTreatment,!useMap)
+  +     toggleRow('cfgDistTransfer','ระยะทางไป Transfer (รพ.)',mapSettings().distTransfer,!useMap)
+  +   '</div>'
   + '</div>';
+}
+function toggleRow(id,label,checked,disabled){
+  return '<div class="toggle-row">'
+    +'<label class="toggle-switch"><input type="checkbox" id="'+id+'" data-act="mapSettingToggle" data-key="'+id+'" '+(checked?'checked':'')+' '+(disabled?'disabled':'')+'><span class="toggle-slider"></span></label>'
+    +'<span class="toggle-label">'+label+'</span>'
+    +'</div>';
 }
 function statCard(label, value){
   return '<div class="card"><div class="label">'+label+'</div><div style="font-family:var(--font-mono);font-size:28px;font-weight:600;">'+value+'</div></div>';
+}
+
+function gmTabScene(){
+  const scene = STATE.scene || DEFAULT_SCENE;
+  const statusLabel = scene.skipped ? '⏭️ ข้ามขั้นตอนแล้ว (ไม่มีผังแผนที่)' : scene.published ? '✅ เผยแพร่แล้ว เมื่อ '+new Date(scene.publishedAt).toLocaleTimeString('th-TH') : '🕒 ยังไม่เผยแพร่ — ผู้เล่นยังเข้าเกมไม่ได้';
+  return ''
+  + '<div class="card" style="margin-bottom:12px;">'
+  +   '<div class="flexrow" style="justify-content:space-between;">'
+  +     '<div><b>สถานะ:</b> '+statusLabel+'</div>'
+  +     '<div class="flexrow">'
+  +       '<button class="btn" data-act="sceneImport">นำเข้าไฟล์</button>'
+  +       '<button class="btn" data-act="sceneExport">บันทึกไฟล์</button>'
+  +       '<button class="btn danger" data-act="sceneSkip">⏭️ ข้ามขั้นตอนนี้</button>'
+  +       '<button class="btn primary" data-act="scenePublish">📡 เผยแพร่ไปยังผู้เล่น</button>'
+  +     '</div>'
+  +   '</div>'
+  +   '<div class="hint" style="margin-top:6px;">วางเต๊น/โซน/เส้นทางบนแผนที่จริงด้านล่าง แล้วกด "เผยแพร่" เพื่อ sync ให้ทุกคนและปลดล็อกให้เริ่มเกมได้ หรือกด "ข้ามขั้นตอนนี้" ถ้าไม่ต้องการใช้ผังแผนที่จริงรอบนี้</div>'
+  + '</div>'
+  + '<div id="scRoot">'
+  +   '<div class="sc-search"><div class="sc-search-row"><input type="text" id="mapSearchInput" placeholder="ค้นหาสถานที่ เช่น โรงพยาบาลลำปาง"><button class="btn primary" id="mapSearchBtn">ค้นหา</button><button class="btn" id="nearbyHospitalBtn">🏥 รพ.ใกล้เคียง</button><button class="btn ghost" id="clearNearbyHospitalBtn">ซ่อน</button></div><div class="sc-search-status" id="nearbyHospitalStatus"></div><div class="sc-search-results" id="mapSearchResults"></div></div>'
+  +   '<div class="sc-body" id="body">'
+  +     '<div class="sc-sidebar" id="sidebar">'
+  +       '<div class="sc-sect"><h2>วางเต๊น / จุด</h2><div class="sc-tool-grid" id="tentTools"></div></div>'
+  +       '<div class="sc-sect"><h2>โซนอันตราย</h2><div class="sc-tool-grid" id="zoneTools"></div></div>'
+  +       '<div class="sc-sect"><h2>เส้นทางรถ / ปิดถนน</h2><div class="sc-tool-grid" id="routeTools"></div>'
+  +         '<div class="flexrow" style="margin-top:8px;font-size:12px;color:var(--ink-faint);"><span>ความเร็วรถ</span><input type="number" id="speedInput" value="30" min="1" style="width:60px;"><span>km/h</span></div>'
+  +         '<div class="sc-empty-note">คลิกวาดเส้นตามถนนจริง ระบบคำนวณระยะทาง+เวลาไป-กลับจากระยะจริง</div>'
+  +       '</div>'
+  +       '<div class="sc-sect" style="flex:1;"><h2>รายการทั้งหมด</h2><div id="legendList"></div></div>'
+  +     '</div>'
+  +     '<div class="sc-map" id="map">'
+  +       '<div class="sc-float-panel hidden" id="radiusPanel">'
+  +         '<div class="sc-fp-title">กำหนดรัศมีโซน (เมตร)</div>'
+  +         '<input type="number" id="radiusInput" value="40" min="5"><span>เมตร</span>'
+  +         '<button class="btn primary" id="radiusConfirm">ยืนยัน</button>'
+  +         '<button class="btn" id="radiusCancel">ยกเลิก</button>'
+  +       '</div>'
+  +       '<div class="sc-float-panel hidden" id="routeDirPanel">'
+  +         '<div class="sc-fp-title">เส้นทางนี้ใช้สำหรับทิศทางไหน</div>'
+  +         '<button class="btn primary" data-dir="both">🔁 ไป-กลับ</button>'
+  +         '<button class="btn" data-dir="to">➡ ขาไป</button>'
+  +         '<button class="btn" data-dir="from">⬅ ขากลับ</button>'
+  +         '<button class="btn danger" id="routeDirCancel">ยกเลิก</button>'
+  +       '</div>'
+  +     '</div>'
+  +   '</div>'
+  +   '<div class="sc-footer"><span id="statusText">โหมด: เลื่อนแผนที่ปกติ</span><span id="countText">0 จุด</span></div>'
+  + '</div>'
+  + '<input type="file" id="fileInput" accept=".json" style="display:none;">';
 }
 
 function gmTabRoster(){
@@ -1708,12 +3154,12 @@ function gmTabCases(){
 
 function gmTabResources(){
   const resRows=STATE.resources.map(function(r){return '<tr><td>'+esc(r.item)+'</td><td><input type="number" style="width:80px;" id="res_stock_'+esc(r.item)+'" value="'+r.stock+'"></td><td><input type="number" style="width:80px;" id="res_dur_'+esc(r.item)+'" value="'+r.durationSec+'"></td><td><button class="btn sm ghost" data-act="gmSaveResource" data-item="'+esc(r.item)+'">บันทึก</button></td></tr>';}).join('');
-  const hospRows=STATE.hospitals.map(function(h,i){return '<tr><td><input type="text" id="hosp_name_'+i+'" value="'+esc(h.name)+'"></td><td><input type="number" style="width:60px;" id="hosp_red_'+i+'" value="'+h.redCap+'"></td><td><input type="number" style="width:60px;" id="hosp_yellow_'+i+'" value="'+h.yellowCap+'"></td><td><input type="number" style="width:60px;" id="hosp_green_'+i+'" value="'+h.greenCap+'"></td><td>'+h.redUsed+' / '+h.yellowUsed+' / '+h.greenUsed+'</td><td><input type="number" style="width:60px;" id="hosp_dist_'+i+'" value="'+h.distanceMin+'"></td><td><button class="btn sm ghost" data-act="gmSaveHospital" data-index="'+i+'">บันทึก</button></td></tr>';}).join('');
-  return '<div class="card"><h3>คลังทรัพยากรรักษา</h3><table><thead><tr><th>รายการ</th><th>Stock</th><th>ระยะเวลา (วิ)</th><th></th></tr></thead><tbody>'+resRows+'</tbody></table></div><div class="card section-gap"><h3>ความจุและชื่อโรงพยาบาล</h3><table><thead><tr><th>ชื่อ รพ.</th><th>Red</th><th>Yellow</th><th>Green</th><th>Used</th><th>ระยะทาง</th><th></th></tr></thead><tbody>'+hospRows+'</tbody></table></div>';
+  const hospRows=STATE.hospitals.map(function(h,i){const out=h.outboundMin!=null?h.outboundMin:h.distanceMin;const ret=h.returnMin!=null?h.returnMin:h.distanceMin;return '<tr><td><input type="text" id="hosp_name_'+i+'" value="'+esc(h.name)+'"></td><td><input type="number" style="width:60px;" id="hosp_red_'+i+'" value="'+h.redCap+'"></td><td><input type="number" style="width:60px;" id="hosp_yellow_'+i+'" value="'+h.yellowCap+'"></td><td><input type="number" style="width:60px;" id="hosp_green_'+i+'" value="'+h.greenCap+'"></td><td>'+h.redUsed+' / '+h.yellowUsed+' / '+h.greenUsed+'</td><td><input type="number" step="0.1" style="width:70px;" id="hosp_out_'+i+'" value="'+round1(out||0)+'"></td><td><input type="number" step="0.1" style="width:70px;" id="hosp_return_'+i+'" value="'+round1(ret||0)+'"></td><td><b>'+round1((Number(out)||0)+(Number(ret)||0))+'</b></td><td><button class="btn sm ghost" data-act="gmSaveHospital" data-index="'+i+'">บันทึก</button></td></tr>';}).join('');
+  return '<div class="card"><h3>คลังทรัพยากรรักษา</h3><table><thead><tr><th>รายการ</th><th>Stock</th><th>ระยะเวลา (วิ)</th><th></th></tr></thead><tbody>'+resRows+'</tbody></table></div><div class="card section-gap"><h3>ความจุและชื่อโรงพยาบาล</h3><div class="hint" style="margin-bottom:8px;">ไม่ใช้ Map: กรอกข้อมูลเองที่นี่ · ใช้ Map: รายการนี้จะถูกแทนด้วยโรงพยาบาลที่วางบน Map เมื่อกดเผยแพร่</div><table><thead><tr><th>ชื่อ รพ.</th><th>Red</th><th>Yellow</th><th>Green</th><th>Used</th><th>ขาไป (น.)</th><th>ขากลับ (น.)</th><th>รวม (น.)</th><th></th></tr></thead><tbody>'+hospRows+'</tbody></table></div>';
 }
 
 function hospitalCapacityReadonly(){
-  const rows=STATE.hospitals.map(function(h){return '<tr><td>'+esc(h.name)+'</td><td>'+h.redUsed+'/'+h.redCap+'</td><td>'+h.yellowUsed+'/'+h.yellowCap+'</td><td>'+h.greenUsed+'/'+h.greenCap+'</td><td>'+h.distanceMin+' น.</td></tr>';}).join('');
+  const rows=STATE.hospitals.map(function(h){const out=h.outboundMin!=null?h.outboundMin:h.distanceMin;const ret=h.returnMin!=null?h.returnMin:h.distanceMin;return '<tr><td>'+esc(h.name)+'</td><td>'+h.redUsed+'/'+h.redCap+'</td><td>'+h.yellowUsed+'/'+h.yellowCap+'</td><td>'+h.greenUsed+'/'+h.greenCap+'</td><td>'+round1(out||0)+' น.</td><td>'+round1(ret||0)+' น.</td><td>'+round1((Number(out)||0)+(Number(ret)||0))+' น.</td></tr>';}).join('');
   return '<div class="card"><h3>Hospital Capacity (ดูอย่างเดียว)</h3><table><thead><tr><th>รพ.</th><th>RED used/cap</th><th>YELLOW used/cap</th><th>GREEN used/cap</th><th>ระยะทาง</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function commanderRoster(){
@@ -1807,9 +3253,47 @@ async function handleClick(el){
   if(act==='gmStart'){ await gmStartGame(); return; }
   if(act==='gmEnd'){ await gmEndGame(); return; }
   if(act==='gmReset'){ if(confirm('ยืนยัน Reset เกม? ข้อมูลผู้ป่วยทั้งหมดจะถูกลบ')) await gmResetGame(); return; }
+  if(act==='sceneImport'){ window.SceneApp && window.SceneApp.triggerImport(); return; }
+  if(act==='sceneExport'){ window.SceneApp && window.SceneApp.exportFile(); return; }
+  if(act==='sceneSkip'){
+    if(!confirm('ข้ามขั้นตอน Scene Setup? เกมจะใช้รายชื่อ ความจุ และระยะทางโรงพยาบาลที่กรอกเองในแท็บทรัพยากร')) return;
+    const scene = Object.assign({}, DEFAULT_SCENE, {skipped:true});
+    await kvSet(KEYS.scene, scene); STATE.scene = scene;
+    document.getElementById('statusText') && (document.getElementById('statusText').textContent = 'ข้ามขั้นตอนนี้แล้ว — ผู้เล่นเริ่มเกมได้');
+    render(true);
+    return;
+  }
+  if(act==='scenePublish'){
+    const data = window.SceneApp && window.SceneApp.serialize();
+    const tents = data && data.tents ? data.tents : [];
+    const mapHospitals = tents.filter(function(t){return t.typeId==='hospital' && String(t.name||'').trim();}).map(function(t){
+      const name=String(t.name).trim();
+      const linked=(data.routes||[]).filter(function(r){return r.linkedHospitalName===name;});
+      const hub=tents.find(function(x){return x.typeId==='loading';})||tents.find(function(x){return x.typeId==='incident';})||tents.find(function(x){return x.typeId==='command';});
+      const fallback=hub ? (haversineKm(hub.lat,hub.lng,t.lat,t.lng)/AMBULANCE_FALLBACK_KMH)*60 : 0;
+      function routeBest(direction){
+        const vals=linked.filter(function(r){return r.direction===direction||r.direction==='both';}).map(routeMinutes).filter(function(v){return v!=null;});
+        return vals.length?Math.min.apply(null,vals):fallback;
+      }
+      const outboundMin=routeBest('to');
+      const returnMin=routeBest('from');
+      return {name:name,redCap:Number(t.redCap)||0,yellowCap:Number(t.yellowCap)||0,greenCap:Number(t.greenCap)||0,redUsed:0,yellowUsed:0,greenUsed:0,outboundMin:Number(outboundMin.toFixed(1)),returnMin:Number(returnMin.toFixed(1)),distanceMin:Number(outboundMin.toFixed(1))};
+    });
+    const scene = {published:true, publishedAt:Date.now(), skipped:false, data: data||null};
+    await kvSet(KEYS.scene, scene); await kvSet(KEYS.hospitals,mapHospitals);
+    STATE.scene = scene; STATE.hospitals=mapHospitals;
+    const st = document.getElementById('statusText');
+    if(st) st.textContent = 'เผยแพร่สำเร็จ — ใช้โรงพยาบาลจาก Map '+mapHospitals.length+' แห่ง';
+    render(true);
+    return;
+  }
   if(act==='gmSaveConfig'){
     await gmUpdateConfig({
-      maxGameMin: Number(val('cfgMaxMin'))||60
+      maxGameMin: Number(val('cfgMaxMin'))||60,
+      transitSpeeds: {
+        walkKmh: Number(val('cfgWalkKmh'))||4,
+        carryKmh: Number(val('cfgCarryKmh'))||3
+      }
     });
     toast('บันทึกการตั้งค่าแล้ว','ok');
     return;
@@ -1845,7 +3329,9 @@ async function handleClick(el){
       redCap:Number(val('hosp_red_'+i))||0,
       yellowCap:Number(val('hosp_yellow_'+i))||0,
       greenCap:Number(val('hosp_green_'+i))||0,
-      distanceMin:Number(val('hosp_dist_'+i))||1
+      outboundMin:Number(val('hosp_out_'+i))||0,
+      returnMin:Number(val('hosp_return_'+i))||0,
+      distanceMin:Number(val('hosp_out_'+i))||0
     });
     return;
   }
@@ -1869,10 +3355,24 @@ async function handleChange(el){
     await txStartItem(el.dataset.pid, Number(el.dataset.slot), el.value);
     return;
   }
+  if(act==='mapSettingToggle'){
+    const keyByCheckboxId={cfgUseMap:'useMap', cfgDistSecondary:'distSecondary', cfgDistTreatment:'distTreatment', cfgDistTransfer:'distTransfer'};
+    const key=keyByCheckboxId[el.dataset.key];
+    if(!key) return;
+    await gmSetMapSetting(key, el.checked);
+    return;
+  }
 }
 
 function boot(){
   fbInit();
+  const svToggle = document.getElementById('sceneViewerToggle');
+  if(svToggle){
+    svToggle.addEventListener('click', function(){
+      const host = document.getElementById('sceneViewerHost');
+      if(host) host.classList.toggle('collapsed');
+    });
+  }
   const app = document.getElementById('app');
   app.addEventListener('click', function(e){
     const el = e.target.closest('[data-act]');

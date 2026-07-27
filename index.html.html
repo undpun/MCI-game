@@ -1390,6 +1390,9 @@ const FIREBASE_CONFIG = {
   measurementId: "G-GMFJEEV5RB"
 };
 
+/* รหัสสำหรับเปิดสิทธิ์ GM (เป็นการล็อกฝั่งหน้าเว็บ) */
+const GM_PASSWORD = 'er1234';
+
 /* ============================================================
    1) STATIC CONFIG DATA
 ============================================================ */
@@ -1500,6 +1503,30 @@ async function kvUpdate(key, fallback, mutator){
   const next = mutator(cur);
   await kvSet(key, next);
   return next;
+}
+async function kvRosterUpdate(mutator){
+  if(!fbReady) return mutator({});
+  try{
+    const ref = fbDb.ref(DB_ROOT+'/'+KEYS.roster);
+    const initialSnap = await ref.once('value');
+    const initialRaw = initialSnap.exists() ? initialSnap.val() : JSON.stringify({});
+    const result = await ref.transaction(function(raw){
+      if(raw==null) raw=initialRaw;
+      let roster={};
+      try{ roster=typeof raw==='string' ? JSON.parse(raw) : (raw||{}); }catch(e){ roster={}; }
+      const next = mutator(roster);
+      if(next==null) return;
+      return JSON.stringify(next);
+    });
+    STATE.fbConnected=true;
+    const savedRaw=result.snapshot.val();
+    return typeof savedRaw==='string' ? JSON.parse(savedRaw) : (savedRaw||{});
+  }catch(e){
+    console.error('kvRosterUpdate failed',e);
+    STATE.fbConnected=false;
+    STATE.fbErrorMsg=(e&&e.message)||String(e);
+    return {};
+  }
 }
 async function kvRootTransaction(mutator){
   if(!fbReady) return {committed:false};
@@ -1833,7 +1860,7 @@ function timeAgo(ts){
    4) STATE
 ============================================================ */
 const STATE = {
-  me: {name:null, station:null},
+  me: {name:null, station:null, gmAuthorized:false},
   gc: JSON.parse(JSON.stringify(DEFAULT_GC)),
   cases: DEFAULT_CASES.slice(),
   resources: DEFAULT_RESOURCES.slice(),
@@ -1913,7 +1940,8 @@ async function refreshAll(){
 
   if(STATE.me.name){
     const entry = roster[STATE.me.name];
-    STATE.me.station = entry ? entry.station : null;
+    const assignedStation = entry ? entry.station : null;
+    STATE.me.station = assignedStation==='GM' && !STATE.me.gmAuthorized ? null : assignedStation;
   }
   STATE.ready = true;
   backgroundRender();
@@ -1940,20 +1968,33 @@ function updateLiveTimersOnly(){
 }
 
 let pollTimer=null;
+let rosterHeartbeatTimer=null;
+let clockTimer=null;
+let identitySession=0;
+
+function stopPolling(){
+  if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
+  if(rosterHeartbeatTimer){ clearInterval(rosterHeartbeatTimer); rosterHeartbeatTimer=null; }
+  if(clockTimer){ clearInterval(clockTimer); clockTimer=null; }
+}
+
 function startPolling(){
   if(pollTimer) return;
+  const session = identitySession;
   refreshAll();
   pollTimer = setInterval(refreshAll, 2500);
-  setInterval(function(){
-    if(!STATE.me.name) return;
-    kvUpdate(KEYS.roster, {}, function(roster){
-      const cur = roster[STATE.me.name] || {station:null};
+  rosterHeartbeatTimer = setInterval(function(){
+    const activeName = STATE.me.name;
+    if(!activeName || session!==identitySession) return;
+    kvRosterUpdate(function(roster){
+      if(session!==identitySession || STATE.me.name!==activeName) return roster;
+      const cur = roster[activeName] || {station:null};
       const next = Object.assign({}, roster);
-      next[STATE.me.name] = Object.assign({}, cur, {lastSeen:Date.now()});
+      next[activeName] = Object.assign({}, cur, {lastSeen:Date.now()});
       return next;
     });
   }, 6000);
-  setInterval(function(){
+  clockTimer = setInterval(function(){
     // keep clock/timer UI ticking smoothly even between polls, without
     // disrupting an in-progress dropdown/input selection
     if(STATE.gc.status==='RUNNING') backgroundRender();
@@ -1963,12 +2004,25 @@ function startPolling(){
 /* ============================================================
    6) IDENTITY / ROSTER ACTIONS
 ============================================================ */
-async function joinAsPlayer(name, asGM, asCommander){
+async function joinAsPlayer(name, asGM, asCommander, gmPassword){
   name = name.trim();
   if(!name) { toast('กรุณากรอกชื่อ','err'); return; }
+  if(asGM && gmPassword!==GM_PASSWORD){
+    toast('รหัส GM ไม่ถูกต้อง','err');
+    const passwordInput = document.getElementById('joinGMPassword');
+    if(passwordInput){ passwordInput.value=''; passwordInput.focus(); }
+    return;
+  }
   await ensureSeeded();
+  const currentRoster = await kvGet(KEYS.roster, {});
+  if(currentRoster[name] && currentRoster[name].station==='GM' && !asGM){
+    toast('ชื่อนี้เป็น GM กรุณาเลือก “ฉันเป็นผู้ควบคุมเกม” และกรอกรหัส','err');
+    return;
+  }
   STATE.me.name = name;
-  await kvUpdate(KEYS.roster, {}, function(roster){
+  STATE.me.gmAuthorized = !!asGM;
+  identitySession += 1;
+  await kvRosterUpdate(function(roster){
     const cur = roster[name];
     const next = Object.assign({}, roster);
     next[name] = {station: asGM ? 'GM' : (asCommander ? 'COMMANDER' : (cur ? cur.station : null)), lastSeen:Date.now()};
@@ -1977,7 +2031,7 @@ async function joinAsPlayer(name, asGM, asCommander){
   startPolling();
 }
 async function gmAssignStation(name, stationId){
-  await kvUpdate(KEYS.roster, {}, function(roster){
+  await kvRosterUpdate(function(roster){
     const cur = roster[name] || {lastSeen:Date.now()};
     const next = Object.assign({}, roster);
     next[name] = Object.assign({}, cur, {station: stationId || null});
@@ -1990,13 +2044,32 @@ async function gmAssignStation(name, stationId){
   render();
 }
 async function gmRemovePlayer(name){
-  await kvUpdate(KEYS.roster, {}, function(roster){
+  await kvRosterUpdate(function(roster){
     const next = Object.assign({}, roster);
     delete next[name];
     return next;
   });
   STATE.roster = await kvGet(KEYS.roster, {});
   render();
+}
+
+async function leaveCurrentPlayer(){
+  const leavingName = STATE.me.name;
+  identitySession += 1;
+  stopPolling();
+  STATE.me.name=null;
+  STATE.me.station=null;
+  STATE.me.gmAuthorized=false;
+
+  if(leavingName){
+    await kvRosterUpdate(function(roster){
+      const next = Object.assign({}, roster);
+      delete next[leavingName];
+      return next;
+    });
+    STATE.roster = await kvGet(KEYS.roster, {});
+  }
+  render(true);
 }
 
 /* ============================================================
@@ -2471,6 +2544,16 @@ async function gmUpdateResource(item, patch){
   });});
   STATE.resources=await kvGet(KEYS.resources,DEFAULT_RESOURCES);toast('อัปเดตทรัพยากร '+item,'ok');render();
 }
+async function gmAddResource(item, stock, durationSec){
+  item=norm(item);
+  if(!item){toast('กรุณากรอกชื่อทรัพยากร','err');return;}
+  if(STATE.resources.some(function(r){return String(r.item).toLowerCase()===item.toLowerCase();})){
+    toast('มีทรัพยากรชื่อนี้แล้ว','err');return;
+  }
+  const rec={item:item,stock:Math.max(0,Number(stock)||0),durationSec:Math.max(1,Number(durationSec)||5),addedTotal:Math.max(0,Number(stock)||0)};
+  await kvUpdate(KEYS.resources,DEFAULT_RESOURCES,function(list){return (Array.isArray(list)?list:[]).concat([rec]);});
+  STATE.resources=await kvGet(KEYS.resources,DEFAULT_RESOURCES);toast('เพิ่มทรัพยากร '+item+' แล้ว','ok');render();
+}
 async function gmUpdateHospital(name, patch){
   await kvUpdate(KEYS.hospitals, DEFAULT_HOSPITALS, function(list){return list.map(function(h){return h.name===name?Object.assign({},h,patch):h;});});
   STATE.hospitals=await kvGet(KEYS.hospitals,DEFAULT_HOSPITALS);toast('อัปเดตโรงพยาบาล '+name,'ok');render();
@@ -2484,6 +2567,27 @@ async function gmRenameHospital(oldName,newName,patch){
     return root;
   });
   await refreshAll();toast('เปลี่ยนชื่อโรงพยาบาลแล้ว','ok');
+}
+async function gmAddHospital(hospital){
+  if(STATE.gc.mapSettings && STATE.gc.mapSettings.useMap){toast('กรุณาปิด “ใช้ Map” ก่อนเพิ่มโรงพยาบาลเอง','err');return;}
+  hospital.name=norm(hospital.name);
+  if(!hospital.name){toast('กรุณากรอกชื่อโรงพยาบาล','err');return;}
+  if(STATE.hospitals.some(function(h){return String(h.name).toLowerCase()===hospital.name.toLowerCase();})){
+    toast('มีโรงพยาบาลชื่อนี้แล้ว','err');return;
+  }
+  await kvUpdate(KEYS.hospitals,DEFAULT_HOSPITALS,function(list){return (Array.isArray(list)?list:[]).concat([hospital]);});
+  STATE.hospitals=await kvGet(KEYS.hospitals,DEFAULT_HOSPITALS);toast('เพิ่มโรงพยาบาล '+hospital.name+' แล้ว','ok');render();
+}
+async function gmDeleteHospital(name){
+  if(STATE.gc.mapSettings && STATE.gc.mapSettings.useMap){toast('กรุณาปิด “ใช้ Map” ก่อนลบโรงพยาบาลที่กรอกเอง','err');return;}
+  const assigned=STATE.patients.some(function(p){return p.hospital===name && p.stage==='TRANSFER';});
+  if(assigned){toast('ลบไม่ได้: มีผู้ป่วย Transfer เลือกโรงพยาบาลนี้อยู่','err');return;}
+  await kvRootTransaction(function(root){
+    root[KEYS.hospitals]=(root[KEYS.hospitals]||DEFAULT_HOSPITALS).filter(function(h){return h.name!==name;});
+    root[KEYS.vehicles]=(root[KEYS.vehicles]||DEFAULT_VEHICLES).map(function(v){return v.busyHospital===name?Object.assign({},v,{busyHospital:null}):v;});
+    return root;
+  });
+  await refreshAll();toast('ลบโรงพยาบาล '+name+' แล้ว','ok');
 }
 
 /* ============================================================
@@ -2630,10 +2734,14 @@ function viewJoin(){
   +     '<label class="label">ชื่อของคุณ</label>'
   +     '<input type="text" id="joinName" data-preserve placeholder="เช่น หมอเอ, พยาบาลบี" data-enter-act="join" style="margin-bottom:12px;">'
   +     '<label class="label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
-  +       '<input type="checkbox" id="joinAsGM" style="width:auto;"> ฉันเป็นผู้ควบคุมเกม (GM)'
+  +       '<input type="checkbox" id="joinAsGM" data-act="toggleGMPassword" style="width:auto;"> ฉันเป็นผู้ควบคุมเกม (GM)'
   +     '</label>'
+  +     '<div id="gmPasswordWrap" style="display:none;margin-top:8px;">'
+  +       '<label class="label" for="joinGMPassword">รหัส GM</label>'
+  +       '<input type="password" id="joinGMPassword" data-preserve data-enter-act="join" autocomplete="current-password" placeholder="กรอกรหัสสำหรับ GM">'
+  +     '</div>'
   +     '<label class="label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px;">'
-  +       '<input type="checkbox" id="joinAsCommander" style="width:auto;"> แต่งตั้งตัวเองเป็น Commander'
+  +       '<input type="checkbox" id="joinAsCommander" data-act="toggleCommanderRole" style="width:auto;"> แต่งตั้งตัวเองเป็น Commander'
   +     '</label>'
   +     '<button class="btn primary block" data-act="join" style="margin-top:14px;">เข้าร่วมภารกิจ</button>'
   +     '<div class="hint" style="margin-top:14px;">ทุกคนที่เข้าร่วมจะรอ GM มอบหมายหน้าที่ประจำสถานี</div>'
@@ -3153,9 +3261,10 @@ function gmTabCases(){
 }
 
 function gmTabResources(){
+  const manualHospital=!(STATE.gc.mapSettings&&STATE.gc.mapSettings.useMap);
   const resRows=STATE.resources.map(function(r){return '<tr><td>'+esc(r.item)+'</td><td><input type="number" style="width:80px;" id="res_stock_'+esc(r.item)+'" value="'+r.stock+'"></td><td><input type="number" style="width:80px;" id="res_dur_'+esc(r.item)+'" value="'+r.durationSec+'"></td><td><button class="btn sm ghost" data-act="gmSaveResource" data-item="'+esc(r.item)+'">บันทึก</button></td></tr>';}).join('');
-  const hospRows=STATE.hospitals.map(function(h,i){const out=h.outboundMin!=null?h.outboundMin:h.distanceMin;const ret=h.returnMin!=null?h.returnMin:h.distanceMin;return '<tr><td><input type="text" id="hosp_name_'+i+'" value="'+esc(h.name)+'"></td><td><input type="number" style="width:60px;" id="hosp_red_'+i+'" value="'+h.redCap+'"></td><td><input type="number" style="width:60px;" id="hosp_yellow_'+i+'" value="'+h.yellowCap+'"></td><td><input type="number" style="width:60px;" id="hosp_green_'+i+'" value="'+h.greenCap+'"></td><td>'+h.redUsed+' / '+h.yellowUsed+' / '+h.greenUsed+'</td><td><input type="number" step="0.1" style="width:70px;" id="hosp_out_'+i+'" value="'+round1(out||0)+'"></td><td><input type="number" step="0.1" style="width:70px;" id="hosp_return_'+i+'" value="'+round1(ret||0)+'"></td><td><b>'+round1((Number(out)||0)+(Number(ret)||0))+'</b></td><td><button class="btn sm ghost" data-act="gmSaveHospital" data-index="'+i+'">บันทึก</button></td></tr>';}).join('');
-  return '<div class="card"><h3>คลังทรัพยากรรักษา</h3><table><thead><tr><th>รายการ</th><th>Stock</th><th>ระยะเวลา (วิ)</th><th></th></tr></thead><tbody>'+resRows+'</tbody></table></div><div class="card section-gap"><h3>ความจุและชื่อโรงพยาบาล</h3><div class="hint" style="margin-bottom:8px;">ไม่ใช้ Map: กรอกข้อมูลเองที่นี่ · ใช้ Map: รายการนี้จะถูกแทนด้วยโรงพยาบาลที่วางบน Map เมื่อกดเผยแพร่</div><table><thead><tr><th>ชื่อ รพ.</th><th>Red</th><th>Yellow</th><th>Green</th><th>Used</th><th>ขาไป (น.)</th><th>ขากลับ (น.)</th><th>รวม (น.)</th><th></th></tr></thead><tbody>'+hospRows+'</tbody></table></div>';
+  const hospRows=STATE.hospitals.map(function(h,i){const out=h.outboundMin!=null?h.outboundMin:h.distanceMin;const ret=h.returnMin!=null?h.returnMin:h.distanceMin;return '<tr><td><input type="text" id="hosp_name_'+i+'" value="'+esc(h.name)+'" '+(manualHospital?'':'disabled')+'></td><td><input type="number" style="width:60px;" id="hosp_red_'+i+'" value="'+h.redCap+'" '+(manualHospital?'':'disabled')+'></td><td><input type="number" style="width:60px;" id="hosp_yellow_'+i+'" value="'+h.yellowCap+'" '+(manualHospital?'':'disabled')+'></td><td><input type="number" style="width:60px;" id="hosp_green_'+i+'" value="'+h.greenCap+'" '+(manualHospital?'':'disabled')+'></td><td>'+h.redUsed+' / '+h.yellowUsed+' / '+h.greenUsed+'</td><td><input type="number" step="0.1" style="width:70px;" id="hosp_out_'+i+'" value="'+round1(out||0)+'" '+(manualHospital?'':'disabled')+'></td><td><input type="number" step="0.1" style="width:70px;" id="hosp_return_'+i+'" value="'+round1(ret||0)+'" '+(manualHospital?'':'disabled')+'></td><td><b>'+round1((Number(out)||0)+(Number(ret)||0))+'</b></td><td><div class="flexrow"><button class="btn sm ghost" data-act="gmSaveHospital" data-index="'+i+'" '+(manualHospital?'':'disabled')+'>บันทึก</button><button class="btn sm danger" data-act="gmDeleteHospital" data-index="'+i+'" '+(manualHospital?'':'disabled')+'>ลบ</button></div></td></tr>';}).join('');
+  return '<div class="card"><h3>คลังทรัพยากรรักษา</h3><div class="grid cols-4" style="margin-bottom:12px;"><div><label class="label">ชื่อทรัพยากรใหม่</label><input id="newResourceName" placeholder="เช่น Pelvic binder"></div><div><label class="label">Stock เริ่มต้น</label><input id="newResourceStock" type="number" min="0" value="1"></div><div><label class="label">ระยะเวลา (วิ)</label><input id="newResourceDuration" type="number" min="1" value="30"></div><div style="align-self:end;"><button class="btn primary block" data-act="gmAddResource">+ เพิ่มทรัพยากร</button></div></div><table><thead><tr><th>รายการ</th><th>Stock</th><th>ระยะเวลา (วิ)</th><th></th></tr></thead><tbody>'+resRows+'</tbody></table></div><div class="card section-gap"><h3>ความจุและชื่อโรงพยาบาล</h3><div class="hint" style="margin-bottom:8px;">ไม่ใช้ Map: เพิ่มและแก้ไขโรงพยาบาลเองที่นี่ · ใช้ Map: รายการจะมาจากโรงพยาบาลที่วางบน Map เมื่อกดเผยแพร่</div>'+(manualHospital?'<div class="grid cols-4" style="margin-bottom:12px;"><div><label class="label">ชื่อ รพ. ใหม่</label><input id="newHospName" placeholder="เช่น โรงพยาบาล A"></div><div><label class="label">ความจุ Red / Yellow / Green</label><div class="flexrow"><input id="newHospRed" type="number" min="0" value="0"><input id="newHospYellow" type="number" min="0" value="0"><input id="newHospGreen" type="number" min="0" value="0"></div></div><div><label class="label">ขาไป / ขากลับ (นาที)</label><div class="flexrow"><input id="newHospOut" type="number" min="0" step="0.1" value="0"><input id="newHospReturn" type="number" min="0" step="0.1" value="0"></div></div><div style="align-self:end;"><button class="btn primary block" data-act="gmAddHospital">+ เพิ่มโรงพยาบาล</button></div></div>':'<div class="hint" style="color:var(--amber);margin-bottom:12px;">กำลังใช้ Map — ปิด “ใช้ Map” ที่แท็บควบคุมเกมก่อน หากต้องการเพิ่มโรงพยาบาลเอง</div>')+'<table><thead><tr><th>ชื่อ รพ.</th><th>Red</th><th>Yellow</th><th>Green</th><th>Used</th><th>ขาไป (น.)</th><th>ขากลับ (น.)</th><th>รวม (น.)</th><th></th></tr></thead><tbody>'+hospRows+'</tbody></table></div>';
 }
 
 function hospitalCapacityReadonly(){
@@ -3240,13 +3349,12 @@ async function handleClick(el){
     const name = val('joinName');
     const asGM = document.getElementById('joinAsGM').checked;
     const asCommander = document.getElementById('joinAsCommander').checked;
-    await joinAsPlayer(name, asGM, asCommander);
+    const gmPassword = val('joinGMPassword');
+    await joinAsPlayer(name, asGM, asCommander, gmPassword);
     return;
   }
   if(act==='leaveJoin'){
-    STATE.me.name=null; STATE.me.station=null;
-    if(pollTimer){ clearInterval(pollTimer); pollTimer=null; }
-    render(true);
+    await leaveCurrentPlayer();
     return;
   }
   if(act==='gmTab'){ STATE.gmTab = el.dataset.tab; render(true); return; }
@@ -3323,6 +3431,20 @@ async function handleClick(el){
     });
     return;
   }
+  if(act==='gmAddResource'){
+    await gmAddResource(val('newResourceName'),val('newResourceStock'),val('newResourceDuration'));
+    return;
+  }
+  if(act==='gmAddHospital'){
+    const out=Math.max(0,Number(val('newHospOut'))||0), ret=Math.max(0,Number(val('newHospReturn'))||0);
+    await gmAddHospital({name:val('newHospName'),redCap:Math.max(0,Number(val('newHospRed'))||0),yellowCap:Math.max(0,Number(val('newHospYellow'))||0),greenCap:Math.max(0,Number(val('newHospGreen'))||0),redUsed:0,yellowUsed:0,greenUsed:0,outboundMin:out,returnMin:ret,distanceMin:out});
+    return;
+  }
+  if(act==='gmDeleteHospital'){
+    const i=Number(el.dataset.index), h=STATE.hospitals[i]; if(!h)return;
+    if(confirm('ลบโรงพยาบาล '+h.name+' ?')) await gmDeleteHospital(h.name);
+    return;
+  }
   if(act==='gmSaveHospital'){
     const i=Number(el.dataset.index), h=STATE.hospitals[i]; if(!h)return;
     await gmRenameHospital(h.name,val('hosp_name_'+i),{
@@ -3347,6 +3469,30 @@ async function handleClick(el){
 
 async function handleChange(el){
   const act = el.dataset.act;
+  if(act==='toggleGMPassword'){
+    const wrap = document.getElementById('gmPasswordWrap');
+    const passwordInput = document.getElementById('joinGMPassword');
+    const commanderCheckbox = document.getElementById('joinAsCommander');
+    if(wrap) wrap.style.display = el.checked ? 'block' : 'none';
+    if(el.checked){
+      if(commanderCheckbox) commanderCheckbox.checked = false;
+      if(passwordInput) passwordInput.focus();
+    }else if(passwordInput){
+      passwordInput.value = '';
+    }
+    return;
+  }
+  if(act==='toggleCommanderRole'){
+    if(el.checked){
+      const gmCheckbox = document.getElementById('joinAsGM');
+      const wrap = document.getElementById('gmPasswordWrap');
+      const passwordInput = document.getElementById('joinGMPassword');
+      if(gmCheckbox) gmCheckbox.checked = false;
+      if(wrap) wrap.style.display = 'none';
+      if(passwordInput) passwordInput.value = '';
+    }
+    return;
+  }
   if(act==='gmAssign'){ await gmAssignStation(el.dataset.name, el.value); return; }
   if(act==='transferSet'){ await transferAssign(el.dataset.pid, el.dataset.field, el.value); return; }
   if(act==='txNote'){ await txSetNote(el.dataset.pid,el.value); return; }

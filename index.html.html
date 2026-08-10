@@ -285,18 +285,52 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .capbar .capfill{width:70px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--line);}
 .capbar .capfill i{display:block;height:100%;background:var(--accent);}
 
-/* GM live flow dashboard */
-.flow-dashboard{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;}
-.flow-card{background:var(--bg-panel-2);border:1px solid var(--line);border-radius:9px;padding:12px;min-height:92px;}
-.flow-card .flow-label{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.05em;}
-.flow-card .flow-value{font-family:var(--font-mono);font-size:27px;font-weight:700;margin-top:4px;}
-.flow-card .flow-sub{font-size:11px;color:var(--ink-dim);margin-top:4px;line-height:1.45;}
+/* GM live zone board */
+.zone-flow-board{display:grid;grid-template-columns:minmax(170px,1fr) minmax(170px,1fr) minmax(210px,1.25fr) minmax(190px,1fr);gap:12px;align-items:stretch;}
+.zone-flow-column{display:flex;flex-direction:column;gap:10px;min-width:0;}
+.zone-box{background:var(--bg-panel-2);border:1px solid var(--line);border-radius:10px;padding:11px;min-height:190px;display:flex;flex-direction:column;}
+.zone-box.compact{min-height:148px;}
+.zone-box.red{border-color:rgba(239,68,68,.5);}.zone-box.yellow{border-color:rgba(234,179,8,.5);}.zone-box.green{border-color:rgba(34,197,94,.5);}
+.zone-box-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;padding-bottom:8px;border-bottom:1px solid var(--line-soft);}
+.zone-box-title{font-size:12px;font-weight:800;letter-spacing:.035em;text-transform:uppercase;}
+.zone-box-count{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);white-space:nowrap;}
+.zone-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:10px 6px;padding:12px 0;align-content:start;min-height:72px;}
+.pixel-patient{text-align:center;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:3px 1px;}
+.pixel-human{--pc:#7c8494;position:relative;width:40px;height:44px;display:flex;align-items:center;justify-content:center;border:2px solid var(--pc);border-radius:8px;background:color-mix(in srgb,var(--pc) 18%,var(--bg-panel));overflow:hidden;box-shadow:0 3px 8px rgba(0,0,0,.25);}
+.pixel-human:before{content:"🧍";font-size:29px;line-height:1;transform:translateY(1px);filter:saturate(.9);}
+.pixel-human:after{content:"";position:absolute;left:0;right:0;bottom:0;height:5px;background:var(--pc);}
+.pixel-human.gray{--pc:#7c8494}.pixel-human.gray:before{filter:grayscale(1);}.pixel-human.RED{--pc:#ef4444}.pixel-human.YELLOW{--pc:#eab308}.pixel-human.GREEN{--pc:#22c55e}.pixel-human.BLACK{--pc:#111827;}
+.pixel-label{position:relative;z-index:1;font-family:var(--font-mono);font-size:10px;line-height:1.2;font-weight:800;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;background:var(--bg-panel);border:1px solid var(--line-soft);border-radius:4px;padding:2px 4px;}
+.pixel-sub{font-size:9px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.zone-empty{font-size:11px;color:var(--ink-faint);padding:18px 4px;text-align:center;}
+.zone-staff{margin-top:auto;border-top:1px solid var(--line-soft);padding-top:8px;display:flex;flex-direction:column;gap:5px;}
+.zone-staff-title{font-size:9px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;}
+.zone-staff-row{font-size:10px;line-height:1.35;display:flex;gap:5px;align-items:flex-start;}
+.zone-staff-row b{color:var(--ink);}.zone-staff-work{color:var(--ink-dim);}
+.zone-flow-arrow{color:var(--ink-faint);font-size:10px;text-align:center;margin:-4px 0;}
 .activity-table-wrap{max-height:360px;overflow:auto;border:1px solid var(--line-soft);border-radius:8px;}
 .activity-table-wrap table{margin:0;}
 .activity-table-wrap thead{position:sticky;top:0;background:var(--bg-panel);z-index:1;}
+.timeline-filter{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 16px;}
+.timeline-filter .tab{padding:6px 11px;font-size:11px;}
+.timeline-filter-row{padding:10px 0;border-top:1px solid var(--line-soft);}
+.timeline-filter-row:first-of-type{border-top:none;}
+.timeline-filter-label{font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;}
+.eval-badge{display:inline-flex;align-items:center;margin-top:6px;padding:3px 7px;border-radius:999px;border:1px solid var(--line);font-size:10px;font-weight:700;}
+.eval-badge.good{color:#86efac;background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.35);}
+.eval-badge.bad{color:#fca5a5;background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.35);}
+.summary-detail{font-family:var(--font-body);font-size:10px;line-height:1.45;color:var(--ink-faint);margin-top:5px;font-weight:400;}
+.master-timeline{position:relative;margin-left:8px;padding-left:28px;}
+.master-timeline:before{content:"";position:absolute;left:8px;top:5px;bottom:5px;width:2px;background:var(--line);}
+.timeline-event{position:relative;padding:0 0 17px 0;}
+.timeline-event:before{content:"";position:absolute;left:-25px;top:4px;width:10px;height:10px;border-radius:2px;background:var(--accent);box-shadow:0 0 0 3px var(--bg-panel);}
+.timeline-event.game:before{background:#8b5cf6}.timeline-event.patient:before{background:#38bdf8}.timeline-event.treatment:before{background:#22c55e}.timeline-event.transfer:before{background:#f59e0b}.timeline-event.outcome:before{background:#ef4444}
+.timeline-time{font-family:var(--font-mono);font-size:11px;color:var(--accent);font-weight:700;}
+.timeline-desc{font-size:13px;margin-top:2px;line-height:1.45;}
+.timeline-meta{font-size:10px;color:var(--ink-faint);margin-top:3px;}
 .tx-history{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
-@media (max-width:1000px){.flow-dashboard{grid-template-columns:repeat(2,minmax(0,1fr));}}
-@media (max-width:560px){.flow-dashboard{grid-template-columns:1fr;}}
+@media (max-width:1100px){.zone-flow-board{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:620px){.zone-flow-board{grid-template-columns:1fr;}.zone-box{min-height:150px;}}
 
 /* join screen */
 .joinwrap{
@@ -1435,7 +1469,7 @@ const DEFAULT_VEHICLES = [
   {name:'ALS_1',type:'ALS'},{name:'ALS_2',type:'ALS'}
 ].map(function(v){ return Object.assign({busyUntilElapsed:0, busyHospital:null}, v); });
 
-const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, endedElapsed:null, maxGameMin:60, fastTreatment:false, allowHospitalTreatment:false, capacity:{RED:2,YELLOW:2,GREEN:2}, transitSpeeds:{walkKmh:4, carryKmh:3}, mapSettings:{useMap:true, distSecondary:true, distTreatment:true, distTransfer:true}};
+const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, startedBy:null, endedElapsed:null, endedBy:null, maxGameMin:60, fastTreatment:false, allowHospitalTreatment:false, capacity:{RED:2,YELLOW:2,GREEN:2}, transitSpeeds:{walkKmh:4, carryKmh:3}, mapSettings:{useMap:true, distSecondary:true, distTreatment:true, distTransfer:true}};
 
 /* Scene Setup (pre-triage map phase) — published:false + skipped:false blocks
    game start until GM either publishes a scene or explicitly skips it. */
@@ -2091,6 +2125,8 @@ const STATE = {
   scene: JSON.parse(JSON.stringify(DEFAULT_SCENE)),
   ready:false,
   gmTab:'control',
+  debriefPlayerFilter:'ALL',
+  debriefCategoryFilters:{PRIMARY:true,SECONDARY:true,TREATMENT:true,TRANSFER:true},
   toasts:[],
   fbConnected: null,
   fbErrorMsg: null,
@@ -2324,13 +2360,13 @@ function sceneReady(){
 }
 async function gmStartGame(){
   if(!sceneReady()){ toast('กรุณาเผยแพร่หรือข้ามขั้นตอน Scene Setup ก่อนเริ่มเกม','err'); return; }
-  const gc = Object.assign({}, STATE.gc, {status:'RUNNING', startTime:Date.now(), endedElapsed:null});
+  const gc = Object.assign({}, STATE.gc, {status:'RUNNING', startTime:Date.now(), startedBy:STATE.me.name||'GM', endedElapsed:null, endedBy:null});
   await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
   toast('เริ่มเกมแล้ว — แจกหน้าที่และเริ่มรับผู้ป่วยได้เลย','ok');
 }
 async function gmEndGame(){
   const elapsed = elapsedMinutes(STATE.gc);
-  const gc = Object.assign({}, STATE.gc, {status:'ENDED', endedElapsed:elapsed});
+  const gc = Object.assign({}, STATE.gc, {status:'ENDED', endedElapsed:elapsed, endedBy:STATE.me.name||'GM'});
   await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
   toast('จบเกมแล้ว','ok');
 }
@@ -2477,7 +2513,15 @@ async function primarySetField(id, field, value){
     if(!p)return null;
     if(hasAnyTxInProgress(p,elapsed)){toast('ผู้ป่วยกำลังได้รับ Initial Treatment จึงยังทำ Primary Triage ไม่ได้','err');return null;}
     if(!triageHasFreeStaff('PRIMARY',patients,elapsed,STATE.roster)){toast('ไม่มี Staff ว่างใน Primary Triage','err');return null;}
-    return patients.map(function(x){ return normU(x.id)===normU(id) ? Object.assign({}, x, mkPatch(field,value)) : x; });
+    return patients.map(function(x){
+      if(normU(x.id)!==normU(id))return x;
+      const patch=mkPatch(field,value);
+      if(field==='primary'){
+        patch.primaryDecisionTime=elapsed;
+        patch.events=(x.events||[]).concat([{t:elapsed,type:'PRIMARY_CLASSIFY '+value,by:STATE.me.name||''}]);
+      }
+      return Object.assign({},x,patch);
+    });
   });
 }
 function mkPatch(field,value){ const o={}; o[field]=value; return o; }
@@ -2512,7 +2556,15 @@ async function secondarySetField(id, field, value){
     if(!p)return null;
     if(hasAnyTxInProgress(p,elapsed)){toast('ผู้ป่วยกำลังได้รับ Initial Treatment จึงยังทำ Secondary Triage ไม่ได้','err');return null;}
     if(!triageHasFreeStaff('SECONDARY',patients,elapsed,STATE.roster)){toast('ไม่มี Staff ว่างใน Secondary Triage','err');return null;}
-    return patients.map(function(x){ return normU(x.id)===normU(id) ? Object.assign({}, x, mkPatch(field,value)) : x; });
+    return patients.map(function(x){
+      if(normU(x.id)!==normU(id))return x;
+      const patch=mkPatch(field,value);
+      if(field==='secondary'){
+        patch.secondaryDecisionTime=elapsed;
+        patch.events=(x.events||[]).concat([{t:elapsed,type:'SECONDARY_CLASSIFY '+value,by:STATE.me.name||''}]);
+      }
+      return Object.assign({},x,patch);
+    });
   });
 }
 async function secondarySend(id, dest){
@@ -2759,8 +2811,15 @@ async function txSetDispo(id, dispo){
    12) TRANSFER DESK ACTIONS
 ============================================================ */
 async function transferAssign(id, field, value){
+  const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
-    return patients.map(function(p){ return normU(p.id)===normU(id) ? Object.assign({}, p, mkPatch(field,value)) : p; });
+    return patients.map(function(p){
+      if(normU(p.id)!==normU(id))return p;
+      const patch=mkPatch(field,value);
+      const label=field==='hospital'?'HOSPITAL_SELECTED ':field==='vehicle'?'VEHICLE_SELECTED ':'TRANSFER_SET '+field+' ';
+      patch.events=(p.events||[]).concat([{t:elapsed,type:label+(value||'—'),by:STATE.me.name||''}]);
+      return Object.assign({},p,patch);
+    });
   });
 }
 async function txSetNote(id, value){
@@ -3497,6 +3556,90 @@ function viewGM(){
   + body;
 }
 
+function dashboardPatientZone(p){
+  if(p.stage==='PRIMARY')return 'PRIMARY';
+  if(p.stage==='SECONDARY')return 'SECONDARY';
+  if(p.stage==='TRANSIT'&&p.transit){
+    if(p.transit.toStage==='SECONDARY')return 'SECONDARY';
+    if(p.transit.toStage==='TX')return 'TX_'+(p.transit.txZone||p.secondary||'RED');
+  }
+  if(p.stage==='TX')return 'TX_'+(p.txZone||p.secondary||'RED');
+  if(p.stage==='TRANSFER')return 'TRANSFER';
+  if(p.stage==='HOSPITAL')return 'HOSPITAL';
+  if(p.stage==='CLOSED'&&p.hospital)return 'HOSPITAL';
+  return null;
+}
+function dashboardPatientColor(p,elapsed){
+  if(patientIsDead(p,elapsed)||String(p.closedReason||'').indexOf('DEAD')===0)return 'BLACK';
+  return p.secondary||p.primary||'gray';
+}
+function dashboardPatientSub(p,zone,elapsed){
+  if(p.stage==='TRANSIT')return 'กำลังเคลื่อนย้าย';
+  if(zone==='HOSPITAL'){
+    if(p.stage==='HOSPITAL')return p.hospital||'กำลังส่ง';
+    return p.hospitalOutcome==='SURVIVED'?'รับรักษาแล้ว':(p.hospital||'สิ้นสุดการส่ง');
+  }
+  if(zone==='TRANSFER')return p.vehicle||'รอจัดรถ';
+  const active=(p.tx||[]).find(function(slot){return slot&&txSlotStatus(slot,elapsed)==='IN_PROGRESS';});
+  if(active)return active.item;
+  return p.secondary||p.primary||'รอ Triage';
+}
+function pixelPatientHtml(p,zone,elapsed){
+  const color=dashboardPatientColor(p,elapsed);
+  return '<div class="pixel-patient" title="#'+esc(p.id)+' · '+esc(dashboardPatientSub(p,zone,elapsed))+'">'
+    +'<div class="pixel-human '+color+'"></div><div class="pixel-label">No. '+esc(p.id)+'</div>'
+    +'<div class="pixel-sub">'+esc(dashboardPatientSub(p,zone,elapsed))+'</div></div>';
+}
+function zoneStaffActivity(name,stationIds,elapsed){
+  for(let i=0;i<STATE.patients.length;i++){
+    const p=STATE.patients[i];
+    const slot=(p.tx||[]).find(function(x){
+      return x&&x.staffName===name&&txSlotStatus(x,elapsed)==='IN_PROGRESS'&&stationIds.indexOf(treatmentStationForSlot(p,x))>-1;
+    });
+    if(slot)return 'กำลังรักษา No. '+p.id+' · '+slot.item;
+  }
+  let latest=null;
+  STATE.patients.forEach(function(p){
+    (p.events||[]).forEach(function(e){
+      if(e.by===name&&e.t<=elapsed&&(!latest||e.t>latest.t))latest={t:e.t,type:e.type,by:e.by,patient:p};
+    });
+  });
+  if(latest&&elapsed-latest.t<=5)return 'ล่าสุด '+fmtMin(latest.t)+' · '+timelineDescription(latest);
+  return 'ประจำ Zone · พร้อมรับคำสั่ง';
+}
+function zoneStaffHtml(stationIds,elapsed,systemLabel){
+  const names=Object.keys(STATE.roster).filter(function(name){
+    return STATE.roster[name]&&stationIds.indexOf(STATE.roster[name].station)>-1;
+  }).sort();
+  if(systemLabel)names.push(systemLabel);
+  return '<div class="zone-staff"><div class="zone-staff-title">Players in zone</div>'
+    +(names.length?names.map(function(name){
+      if(name===systemLabel)return '<div class="zone-staff-row"><span class="dotlive"></span><b>'+esc(name)+'</b><span class="zone-staff-work">ระบบจำลอง</span></div>';
+      const live=(Date.now()-(STATE.roster[name].lastSeen||0))<15000;
+      return '<div class="zone-staff-row"><span class="'+(live?'dotlive':'dotstale')+'"></span><b>'+esc(name)+'</b><span class="zone-staff-work">'+esc(zoneStaffActivity(name,stationIds,elapsed))+'</span></div>';
+    }).join(''):'<div class="zone-staff-row zone-staff-work">ยังไม่มี Player ประจำ Zone</div>')+'</div>';
+}
+function zoneBoxHtml(zone,title,stationIds,elapsed,extraClass,systemLabel){
+  const patients=STATE.patients.filter(function(p){return dashboardPatientZone(p)===zone;}).sort(function(a,b){return (a.createdAt||0)-(b.createdAt||0);});
+  return '<div class="zone-box '+(extraClass||'')+'"><div class="zone-box-head"><div class="zone-box-title">'+title+'</div><div class="zone-box-count">'+patients.length+' patients</div></div>'
+    +'<div class="zone-people">'+(patients.length?patients.map(function(p){return pixelPatientHtml(p,zone,elapsed);}).join(''):'<div class="zone-empty">ยังไม่มีผู้ป่วย</div>')+'</div>'
+    +zoneStaffHtml(stationIds,elapsed,systemLabel)+'</div>';
+}
+function gmZoneFlowBoard(elapsed){
+  return '<div class="zone-flow-board">'
+    +'<div class="zone-flow-column">'+zoneBoxHtml('PRIMARY','Primary Triage',['PRIMARY'],elapsed)+'</div>'
+    +'<div class="zone-flow-column">'+zoneBoxHtml('SECONDARY','Secondary Triage',['SECONDARY'],elapsed)+'</div>'
+    +'<div class="zone-flow-column">'
+      +zoneBoxHtml('TX_RED','Treatment RED',['TX_RED'],elapsed,'compact red')
+      +zoneBoxHtml('TX_YELLOW','Treatment YELLOW',['TX_YELLOW'],elapsed,'compact yellow')
+      +zoneBoxHtml('TX_GREEN','Treatment GREEN',['TX_GREEN'],elapsed,'compact green')
+      +'<div class="zone-flow-arrow">↓ ส่งต่อหลัง Treatment</div>'
+      +zoneBoxHtml('TRANSFER','Transfer',['TRANSFER','DISPATCH'],elapsed,'compact')
+    +'</div>'
+    +'<div class="zone-flow-column">'+zoneBoxHtml('HOSPITAL','Hospital',['HOSPITAL'],elapsed,'',hospitalTreatmentEnabled(STATE.gc)?'Hospital Sim':null)+'</div>'
+  +'</div>';
+}
+
 function gmTabControl(){
   const gc = STATE.gc;
   const elapsed=elapsedMinutes(gc);
@@ -3542,16 +3685,9 @@ function gmTabControl(){
   +   statCard('เสียชีวิต', deadCount)
   + '</div>'
   + '<div class="card section-gap">'
-  +   '<h3>Live Patient Flow</h3>'
-  +   '<div class="flow-dashboard">'
-  +     flowCard('Triage',primaryCount+secondaryCount,'Primary '+primaryCount+' · Secondary '+secondaryCount)
-  +     TX_ZONES.map(function(zone){const s=txZoneStats[zone];return flowCard('Treatment '+zone,s.total,'กำลังรักษา '+s.active+' · รอ '+s.waiting+' · พร้อมส่ง '+s.ready+' · เสียชีวิต '+s.dead);}).join('')
-  +     flowCard('Transfer',transferCount,'รอเลือกรถ/โรงพยาบาลหรือรอส่ง')
-  +     flowCard('Hospital',hospitalPatients.length,'เดินทาง '+hospitalTravel+' · กำลังรักษา '+hospitalTreating)
-  +     flowCard('กำลังเคลื่อนย้าย',transitCount,'ระหว่าง Primary → Secondary หรือ Secondary → Treatment')
-  +     flowCard('Closed',closedCount,'รับที่ รพ. '+acceptedCount+' · สิ้นสุดเคสอื่น '+Math.max(0,closedCount-acceptedCount))
-  +   '</div>'
-  +   '<div class="activity-table-wrap" style="margin-top:12px;"><table><thead><tr><th>ผู้ป่วย</th><th>ตำแหน่ง</th><th>กำลังทำอะไร</th><th>Treatment ที่ทำแล้ว/กำลังทำ</th></tr></thead><tbody>'+(activityRows||'<tr><td colspan="4" style="text-align:center;color:var(--ink-faint);padding:20px;">ยังไม่มีผู้ป่วยที่กำลังดำเนินการ</td></tr>')+'</tbody></table></div>'
+  +   '<h3>Live Zone Operations</h3>'
+  +   '<div class="hint" style="margin-bottom:12px;">ผู้ป่วยสีเทา = ยังไม่ระบุ Triage · หลัง Triage สีและตำแหน่งจะเปลี่ยนตามสถานะจริง · จุดสีข้างชื่อ Player แสดงการเชื่อมต่อล่าสุด</div>'
+  +   gmZoneFlowBoard(elapsed)
   + '</div>'
   + '<div class="card section-gap">'
   +   '<h3>🏥 Hospital Simulation '+(hospitalMode?'<span class="badge ok">เปิด</span>':'<span class="badge neutral">ปิด · ใช้กติกาเดิม</span>')+'</h3>'
@@ -3832,34 +3968,232 @@ function avgMetric(values){
   const v=values.filter(function(x){return Number.isFinite(x)&&x>=0;});
   return v.length?round1(v.reduce(function(a,b){return a+b;},0)/v.length):'—';
 }
+function timelineClock(t){
+  if(!STATE.gc.startTime)return fmtMin(t);
+  return new Date(STATE.gc.startTime+(Number(t)||0)*60000).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+function timelineDateTime(t){
+  if(!STATE.gc.startTime)return '—';
+  return new Date(STATE.gc.startTime+(Number(t)||0)*60000).toLocaleString('th-TH',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+function timelineCategory(type){
+  if(type==='GAME_START'||type==='GAME_END')return 'game';
+  if(type.indexOf('TX_')>-1||type.indexOf('TREATMENT')>-1)return 'treatment';
+  if(type.indexOf('TRANSFER')>-1||type.indexOf('DISPATCH')>-1||type.indexOf('HOSPITAL')>-1||type.indexOf('VEHICLE')>-1)return 'transfer';
+  if(type.indexOf('DEAD')>-1||type.indexOf('SURVIVED')>-1||type.indexOf('DISCHARGE')>-1)return 'outcome';
+  return 'patient';
+}
+function timelineDescription(entry){
+  const type=entry.type||'', p=entry.patient, no=p?'No. '+p.id:'';
+  if(type==='GAME_START')return 'เริ่มเกม MCI';
+  if(type==='GAME_END')return 'จบเกม MCI';
+  if(type==='REGISTERED')return no+' เข้าสู่ Primary Triage';
+  if(type.indexOf('PRIMARY_CLASSIFY ')===0)return 'Primary Triage '+no+' = '+type.slice(17);
+  if(type.indexOf('SECONDARY_CLASSIFY ')===0)return 'Secondary Triage '+no+' = '+type.slice(19);
+  if(type.indexOf('PRIMARY_')===0){
+    const dest=type.slice(8)==='DISCHARGE'?'Discharge':'Secondary Triage';
+    return 'ส่ง '+no+' จาก Primary Triage → '+dest;
+  }
+  if(type.indexOf('SECONDARY_')===0){
+    const dest=type.slice(10)==='DISCHARGE'?'Discharge':'Treatment '+(p.secondary||'');
+    return 'ส่ง '+no+' จาก Secondary Triage → '+dest;
+  }
+  if(type.indexOf('TRIAGE_TX_START ')===0){
+    const parts=type.split(' ');return 'เริ่ม Treatment '+parts.slice(2).join(' ')+' ให้ '+no+' ที่ '+parts[1]+' Triage';
+  }
+  if(type.indexOf('TX_START ')===0)return 'เริ่ม Treatment '+type.slice(9)+' ให้ '+no;
+  if(type.indexOf('TX_DONE ')===0)return 'Treatment '+type.slice(8)+' ของ '+no+' เสร็จสิ้น';
+  if(type.indexOf('TX_CANCEL_STAFF_MOVED ')===0)return 'Treatment ของ '+no+' ถูกยกเลิกเนื่องจากย้าย Staff ออกจาก '+type.slice(22);
+  if(type.indexOf('TX_CANCEL ')===0)return 'ยกเลิก Treatment '+type.slice(10)+' ของ '+no+' และคืน Stock';
+  if(type==='TO_TRANSFER')return no+' ย้ายเข้าสู่ Transfer';
+  if(type.indexOf('HOSPITAL_SELECTED ')===0)return 'เลือกปลายทาง '+type.slice(18)+' ให้ '+no;
+  if(type.indexOf('VEHICLE_SELECTED ')===0)return 'เลือกรถ '+type.slice(17)+' ให้ '+no;
+  if(type.indexOf('DISPATCH ')===0)return 'ส่ง '+no+' '+type.slice(9);
+  if(type.indexOf('ARRIVE_HOSPITAL ')===0)return no+' ถึง '+type.slice(16);
+  if(type.indexOf('HOSPITAL_TX_START ')===0)return 'โรงพยาบาลเริ่ม '+type.slice(18)+' ให้ '+no;
+  if(type.indexOf('HOSPITAL_TX_DONE ')===0)return 'โรงพยาบาลทำ '+type.slice(17)+' ให้ '+no+' เสร็จ';
+  if(type==='TRANSFER_ACCEPTED')return no+' ได้รับการส่งต่อสำเร็จ';
+  if(type==='SURVIVED_HOSPITAL_TREATMENT')return no+' รักษาที่โรงพยาบาลเสร็จและรอดชีวิต';
+  if(type==='HOSPITAL_TREATMENT_LATE')return no+' ได้รับ Treatment ที่โรงพยาบาลไม่ทันเวลา';
+  if(type==='DO_HARM_WRONG_VEHICLE')return no+' เกิดผลเสียระหว่างส่งจากการใช้รถผิดประเภท';
+  if(type.indexOf('DISCHARGE')===0)return 'Discharge '+no;
+  return no+(no?' · ':'')+type.replaceAll('_',' ');
+}
+function buildMasterTimeline(elapsed){
+  let seq=0, entries=[];
+  if(STATE.gc.startTime)entries.push({t:0,type:'GAME_START',by:STATE.gc.startedBy||'GM',seq:seq++});
+  STATE.patients.forEach(function(p){
+    (p.events||[]).forEach(function(e){
+      if(e.type.indexOf('HOSPITAL_TX_START ')===0||e.type.indexOf('HOSPITAL_TX_DONE ')===0)return;
+      entries.push({t:Number(e.t)||0,type:e.type,by:e.by||'',patient:p,seq:seq++});
+    });
+    (p.tx||[]).filter(Boolean).forEach(function(slot){
+      const doneAt=slot.startedAt+slot.durationSec/60;
+      if(doneAt<=elapsed)entries.push({t:doneAt,type:'TX_DONE '+slot.item,by:slot.staffName||'',patient:p,seq:seq++});
+    });
+    (p.hospitalTx||[]).filter(Boolean).forEach(function(slot){
+      if(slot.startedAt<=elapsed)entries.push({t:slot.startedAt,type:'HOSPITAL_TX_START '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
+      const doneAt=slot.startedAt+slot.durationSec/60;
+      if(doneAt<=elapsed)entries.push({t:doneAt,type:'HOSPITAL_TX_DONE '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
+    });
+  });
+  if(STATE.gc.status==='ENDED'&&STATE.gc.endedElapsed!=null)entries.push({t:Number(STATE.gc.endedElapsed)||0,type:'GAME_END',by:STATE.gc.endedBy||'SYSTEM',seq:seq++});
+  return entries.sort(function(a,b){return a.t-b.t||a.seq-b.seq;});
+}
+function triageUrgencyRank(color){
+  return {BLACK:0,GREEN:1,YELLOW:2,RED:3}[normU(color)];
+}
+function triageDecisionResult(guess,answer){
+  guess=normU(guess);answer=normU(answer);
+  if(!guess||!answer)return 'UNKNOWN';
+  if(guess===answer)return 'CORRECT';
+  const g=triageUrgencyRank(guess),a=triageUrgencyRank(answer);
+  if(g==null||a==null)return 'WRONG';
+  return g>a?'OVER':'UNDER';
+}
+function latestEventByPrefix(p,prefixes){
+  return (p.events||[]).filter(function(e){return prefixes.some(function(prefix){return e.type.indexOf(prefix)===0;});}).sort(function(a,b){return b.t-a.t;})[0]||null;
+}
+function debriefTriageRecords(field){
+  const upper=field==='primary'?'PRIMARY':'SECONDARY';
+  return STATE.patients.filter(function(p){return !!p[field];}).map(function(p){
+    const caseObj=findCase(STATE.cases,p.id)||{};
+    const event=latestEventByPrefix(p,[upper+'_CLASSIFY '])||latestEventByPrefix(p,[upper+'_SECONDARY',upper+'_TX',upper+'_DISCHARGE']);
+    return {patient:p,guess:p[field],answer:caseObj[field],result:triageDecisionResult(p[field],caseObj[field]),by:event&&event.by||'—'};
+  });
+}
+function treatmentItemFromEvent(type){
+  if(type.indexOf('TRIAGE_TX_START ')===0)return type.split(' ').slice(2).join(' ');
+  if(type.indexOf('TX_START ')===0)return type.slice(9);
+  return null;
+}
+function debriefTreatmentRecords(){
+  const rows=[];
+  STATE.patients.forEach(function(p){
+    const required=(findCase(STATE.cases,p.id)||{}).reqTx||[];
+    (p.events||[]).forEach(function(e){
+      const item=treatmentItemFromEvent(e.type);
+      if(item)rows.push({patient:p,item:item,appropriate:required.indexOf(item)>-1,by:e.by||'—'});
+    });
+  });
+  return rows;
+}
+function dispatchedVehicleFromType(type){
+  if(type.indexOf('DISPATCH ')!==0)return '';
+  return type.slice(9).split(' ')[0];
+}
+function debriefVehicleRecords(){
+  return STATE.patients.map(function(p){
+    const event=latestEventByPrefix(p,['DISPATCH ']);
+    if(!event)return null;
+    const vehicle=dispatchedVehicleFromType(event.type)||p.vehicle||'';
+    const required=requiredVehicleFor(findCase(STATE.cases,p.id));
+    return {patient:p,vehicle:vehicle,required:required,appropriate:!required||vehicleType(vehicle)===required,by:event.by||'—'};
+  }).filter(Boolean);
+}
+function actorBreakdown(records){
+  const counts={};
+  records.forEach(function(r){const by=r.by||'—';counts[by]=(counts[by]||0)+1;});
+  const names=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a]||a.localeCompare(b);});
+  return names.length?names.map(function(name){return esc(name)+' '+counts[name];}).join(' · '):'ไม่มี';
+}
+function percentOf(part,total){return total?round1(part*100/total)+'%':'—';}
+function debriefEventCategory(type){
+  if(type==='GAME_START'||type==='GAME_END')return 'GAME';
+  if(type.indexOf('PRIMARY_')===0||type==='REGISTERED')return 'PRIMARY';
+  if(type.indexOf('SECONDARY_')===0)return 'SECONDARY';
+  if(type.indexOf('TX_')>-1||type.indexOf('TREATMENT')>-1)return 'TREATMENT';
+  return 'TRANSFER';
+}
+function eventCorrectness(entry){
+  const p=entry.patient,type=entry.type||'';
+  if(!p)return null;
+  const caseObj=findCase(STATE.cases,p.id)||{};
+  if(type.indexOf('PRIMARY_CLASSIFY ')===0){
+    const result=triageDecisionResult(type.slice(17),caseObj.primary);
+    return {ok:result==='CORRECT',text:result==='CORRECT'?'Primary Triage ถูกต้อง ✅':'Primary Triage ไม่ถูกต้อง ❌ ('+(result==='OVER'?'Overtriage':result==='UNDER'?'Undertriage':'Wrong')+')'};
+  }
+  if(type.indexOf('SECONDARY_CLASSIFY ')===0){
+    const result=triageDecisionResult(type.slice(19),caseObj.secondary);
+    return {ok:result==='CORRECT',text:result==='CORRECT'?'Secondary Triage ถูกต้อง ✅':'Secondary Triage ไม่ถูกต้อง ❌ ('+(result==='OVER'?'Overtriage':result==='UNDER'?'Undertriage':'Wrong')+')'};
+  }
+  /* Compatibility for games recorded before separate CLASSIFY events existed.
+     Judge the legacy send event only when no classification event is present,
+     so new timelines do not display the same evaluation twice. */
+  if(type.indexOf('PRIMARY_')===0){
+    const hasClassify=(p.events||[]).some(function(e){return e.type.indexOf('PRIMARY_CLASSIFY ')===0;});
+    if(!hasClassify){
+      const result=triageDecisionResult(p.primary,caseObj.primary);
+      return {ok:result==='CORRECT',text:result==='CORRECT'?'Primary Triage ถูกต้อง ✅':'Primary Triage ไม่ถูกต้อง ❌ ('+(result==='OVER'?'Overtriage':result==='UNDER'?'Undertriage':'Wrong')+')'};
+    }
+  }
+  if(type.indexOf('SECONDARY_')===0){
+    const hasClassify=(p.events||[]).some(function(e){return e.type.indexOf('SECONDARY_CLASSIFY ')===0;});
+    if(!hasClassify){
+      const result=triageDecisionResult(p.secondary,caseObj.secondary);
+      return {ok:result==='CORRECT',text:result==='CORRECT'?'Secondary Triage ถูกต้อง ✅':'Secondary Triage ไม่ถูกต้อง ❌ ('+(result==='OVER'?'Overtriage':result==='UNDER'?'Undertriage':'Wrong')+')'};
+    }
+  }
+  const item=treatmentItemFromEvent(type);
+  if(item){
+    const appropriate=(caseObj.reqTx||[]).indexOf(item)>-1;
+    return {ok:appropriate,text:appropriate?'Treatment เหมาะสม ✅':'Treatment ไม่ตรง Required Tx ❌'};
+  }
+  if(type.indexOf('VEHICLE_SELECTED ')===0||type.indexOf('DISPATCH ')===0){
+    const vehicle=type.indexOf('VEHICLE_SELECTED ')===0?type.slice(17):dispatchedVehicleFromType(type);
+    const required=requiredVehicleFor(caseObj);
+    const appropriate=!required||vehicleType(vehicle)===required;
+    return {ok:appropriate,text:appropriate?'เลือกรถเหมาะสม ✅':'เลือกรถไม่เหมาะสม ❌ (ต้องการ '+required+')'};
+  }
+  return null;
+}
 function gmTabDebrief(){
-  const elapsed=elapsedMinutes(STATE.gc), patients=STATE.patients;
-  const primaryDone=patients.filter(function(p){return p.primary;});
-  const secondaryDone=patients.filter(function(p){return p.secondary;});
-  const pCorrect=primaryDone.filter(function(p){return p.primary===(findCase(STATE.cases,p.id)||{}).primary;}).length;
-  const sCorrect=secondaryDone.filter(function(p){return p.secondary===(findCase(STATE.cases,p.id)||{}).secondary;}).length;
-  const dead=patients.filter(function(p){return patientIsDead(p,elapsed)||String(p.closedReason||'').indexOf('DEAD')===0;});
-  const wrongVehicle=patients.filter(function(p){return p.transportMismatch||p.closedReason==='DEAD_WRONG_VEHICLE';}).length;
-  const overCapPatients=patients.filter(function(p){return p.overCapacity;});
-  const overCap=overCapPatients.length;
-  const hospOverflowRows=STATE.hospitals.map(function(h){
-    const overRed=Math.max(0,h.redUsed-h.redCap), overYellow=Math.max(0,h.yellowUsed-h.yellowCap), overGreen=Math.max(0,h.greenUsed-h.greenCap);
-    const isOver=(overRed+overYellow+overGreen)>0;
-    return '<tr><td>'+esc(h.name)+'</td><td>'+h.redUsed+'/'+h.redCap+'</td><td>'+h.yellowUsed+'/'+h.yellowCap+'</td><td>'+h.greenUsed+'/'+h.greenCap+'</td><td>'+(isOver?'<span class="badge bad">เกิน Capacity</span>':'<span class="badge ok">ไม่เกิน</span>')+'</td></tr>';
+  const elapsed=elapsedMinutes(STATE.gc);
+  const entries=buildMasterTimeline(elapsed);
+  const primaryRecords=debriefTriageRecords('primary'),secondaryRecords=debriefTriageRecords('secondary');
+  const primaryCorrect=primaryRecords.filter(function(r){return r.result==='CORRECT';});
+  const secondaryCorrect=secondaryRecords.filter(function(r){return r.result==='CORRECT';});
+  const allTriage=primaryRecords.concat(secondaryRecords);
+  const over=allTriage.filter(function(r){return r.result==='OVER';});
+  const under=allTriage.filter(function(r){return r.result==='UNDER';});
+  const treatmentRecords=debriefTreatmentRecords(),treatmentGood=treatmentRecords.filter(function(r){return r.appropriate;});
+  const vehicleRecords=debriefVehicleRecords(),vehicleGood=vehicleRecords.filter(function(r){return r.appropriate;});
+  const dead=STATE.patients.filter(function(p){return patientIsDead(p,elapsed)||String(p.closedReason||'').indexOf('DEAD')===0;});
+  const players=uniq(entries.map(function(e){return e.by;}).filter(function(name){return name&&name!=='SYSTEM'&&name!=='HOSPITAL';}).concat(Object.keys(STATE.roster))).sort();
+  if(STATE.debriefPlayerFilter!=='ALL'&&players.indexOf(STATE.debriefPlayerFilter)<0)STATE.debriefPlayerFilter='ALL';
+  const categoryFilters=STATE.debriefCategoryFilters||{PRIMARY:true,SECONDARY:true,TREATMENT:true,TRANSFER:true};
+  const filtered=entries.filter(function(e){
+    const playerOk=STATE.debriefPlayerFilter==='ALL'||e.by===STATE.debriefPlayerFilter;
+    const category=debriefEventCategory(e.type);
+    return playerOk&&(category==='GAME'||categoryFilters[category]);
+  });
+  const playerButtons='<button class="tab '+(STATE.debriefPlayerFilter==='ALL'?'active':'')+'" data-act="debriefFilter" data-player="ALL">ผู้เล่นทั้งหมด</button>'
+    +players.map(function(name){return '<button class="tab '+(STATE.debriefPlayerFilter===name?'active':'')+'" data-act="debriefFilter" data-player="'+esc(name)+'">'+esc(name)+'</button>';}).join('');
+  const allCategories=categoryFilters.PRIMARY&&categoryFilters.SECONDARY&&categoryFilters.TREATMENT&&categoryFilters.TRANSFER;
+  const categoryLabels={PRIMARY:'Primary Triage',SECONDARY:'Secondary Triage',TREATMENT:'Treatment',TRANSFER:'Transfer / Hospital'};
+  const categoryButtons='<button class="tab '+(allCategories?'active':'')+'" data-act="debriefCategory" data-category="ALL">Overall</button>'
+    +Object.keys(categoryLabels).map(function(key){return '<button class="tab '+(categoryFilters[key]?'active':'')+'" data-act="debriefCategory" data-category="'+key+'">'+categoryLabels[key]+'</button>';}).join('');
+  const rows=filtered.map(function(e){
+    const evaluation=eventCorrectness(e);
+    return '<div class="timeline-event '+timelineCategory(e.type)+'"><div class="timeline-time">'+timelineClock(e.t)+' <span class="hint">(+'+fmtClock(e.t)+')</span></div>'
+      +'<div class="timeline-desc">'+esc(timelineDescription(e))+'</div>'
+      +(evaluation?'<div><span class="eval-badge '+(evaluation.ok?'good':'bad')+'">'+esc(evaluation.text)+'</span></div>':'')
+      +'<div class="timeline-meta">'+(e.by?'ดำเนินการโดย '+esc(e.by):'ระบบ')+(e.patient?' · Patient No. '+esc(e.patient.id):'')+'</div></div>';
   }).join('');
-  const used={}; patients.forEach(function(p){(p.tx||[]).filter(Boolean).forEach(function(x){used[x.item]=(used[x.item]||0)+1;});});
-  const missing=[]; patients.forEach(function(p){const c=findCase(STATE.cases,p.id);if(!c)return;(c.reqTx||[]).forEach(function(item){if(!allTreatmentSlots(p).some(function(x){return x&&x.item===item&&txSlotStatus(x,elapsed)==='SUCCESS';}))missing.push('#'+p.id+': '+item);});});
-  const resourceRows=STATE.resources.map(function(r){return '<tr><td>'+esc(r.item)+'</td><td>'+(used[r.item]||0)+'</td><td>'+(r.addedTotal||0)+'</td><td>'+r.stock+'</td></tr>';}).join('');
-  const timeline=patients.slice().sort(function(a,b){return (a.createdAt||0)-(b.createdAt||0);}).map(function(p){
-    const events=(p.events||[]).map(function(e){return fmtMin(e.t)+' '+esc(e.type)+(e.by?' — '+esc(e.by):'');}).join('<br>');
-    return '<tr><td>#'+esc(p.id)+'</td><td>'+fmtMin(p.createdAt)+'</td><td>'+fmtMin(p.primaryTime)+'</td><td>'+fmtMin(p.secondaryTime)+'</td><td>'+fmtMin(p.txStartTime)+'</td><td>'+fmtMin(p.transferTime)+'</td><td>'+fmtMin(p.hospitalArrivalTime)+'</td><td>'+fmtMin(p.hospitalOutcomeTime)+'</td><td>'+events+'</td></tr>';
-  }).join('');
-  return '<div class="grid cols-4">'+statCard('Primary ถูก',primaryDone.length?round1(pCorrect*100/primaryDone.length)+'%':'—')+statCard('Secondary ถูก',secondaryDone.length?round1(sCorrect*100/secondaryDone.length)+'%':'—')+statCard('เสียชีวิต',dead.length)+statCard('รถผิดประเภท',wrongVehicle)+'</div>'
-    +'<div class="grid cols-3 section-gap">'+statCard('Door→Primary เฉลี่ย',avgMetric(patients.map(function(p){return p.primaryTime!=null?p.primaryTime-p.createdAt:NaN;}))+' น.')+statCard('Primary→Secondary เฉลี่ย',avgMetric(patients.map(function(p){return p.secondaryTime!=null&&p.primaryTime!=null?p.secondaryTime-p.primaryTime:NaN;}))+' น.')+statCard('Secondary→Treatment เฉลี่ย',avgMetric(patients.map(function(p){return p.txStartTime!=null&&p.secondaryTime!=null?p.txStartTime-p.secondaryTime:NaN;}))+' น.')+'</div>'
-    +'<div class="card section-gap"><h3>Death & system findings</h3><p>เสียชีวิตและสาเหตุ: '+(dead.map(function(p){return '#'+p.id+' '+deathReasonFor(p,elapsed);}).join(' | ')||'ไม่มี')+'</p><p>Treatment ที่ขาด: '+(missing.join(' | ')||'ไม่มี')+'</p><p>ส่งเกิน Hospital capacity: '+overCap+' คน'+(overCapPatients.length?' ('+overCapPatients.map(function(p){return '#'+p.id+'→'+esc(p.hospital||'');}).join(', ')+')':'')+'</p>'
-    +'<table style="margin-top:8px;"><thead><tr><th>รพ.</th><th>RED used/cap</th><th>YELLOW used/cap</th><th>GREEN used/cap</th><th>สถานะ</th></tr></thead><tbody>'+hospOverflowRows+'</tbody></table></div>'
-    +'<div class="card section-gap"><h3>ทรัพยากร</h3><table><thead><tr><th>รายการ</th><th>ใช้จริง</th><th>GM เพิ่ม</th><th>คงเหลือ</th></tr></thead><tbody>'+resourceRows+'</tbody></table></div>'
-    +'<div class="card section-gap"><h3>Patient Timeline</h3><table><thead><tr><th>ID</th><th>Door</th><th>Primary</th><th>Secondary</th><th>Tx start</th><th>Dispatch</th><th>ถึง รพ.</th><th>ผลลัพธ์</th><th>เหตุการณ์</th></tr></thead><tbody>'+timeline+'</tbody></table></div>';
+  const endText=STATE.gc.status==='ENDED'&&STATE.gc.endedElapsed!=null?timelineDateTime(STATE.gc.endedElapsed):'เกมยังไม่จบ';
+  return '<div class="grid cols-4">'
+    +statCard('Primary Triage ถูก',percentOf(primaryCorrect.length,primaryRecords.length)+'<div class="summary-detail">'+primaryCorrect.length+'/'+primaryRecords.length+' ครั้ง</div>')
+    +statCard('Secondary Triage ถูก',percentOf(secondaryCorrect.length,secondaryRecords.length)+'<div class="summary-detail">'+secondaryCorrect.length+'/'+secondaryRecords.length+' ครั้ง</div>')
+    +statCard('Overtriage',over.length+'<div class="summary-detail">โดย '+actorBreakdown(over)+'</div>')
+    +statCard('Undertriage',under.length+'<div class="summary-detail">โดย '+actorBreakdown(under)+'</div>')
+    +'</div><div class="grid cols-3 section-gap">'
+    +statCard('Treatment เหมาะสม',percentOf(treatmentGood.length,treatmentRecords.length)+'<div class="summary-detail">'+treatmentGood.length+'/'+treatmentRecords.length+' รายการ</div>')
+    +statCard('เลือกรถเหมาะสม',percentOf(vehicleGood.length,vehicleRecords.length)+'<div class="summary-detail">'+vehicleGood.length+'/'+vehicleRecords.length+' ราย</div>')
+    +statCard('Dead',dead.length+' · '+percentOf(dead.length,STATE.patients.length)+'<div class="summary-detail">'+(dead.length?'No. '+dead.map(function(p){return esc(p.id);}).join(', '):'ไม่มี')+'</div>')
+    +'</div><div class="card section-gap"><div class="flexrow" style="justify-content:space-between;"><div><h3 style="margin-bottom:3px;">Master Event Timeline</h3><div class="hint">เริ่ม '+(STATE.gc.startTime?timelineDateTime(0):'—')+' · จบ '+endText+' · ทั้งหมด '+entries.length+' เหตุการณ์</div></div></div>'
+    +'<div class="timeline-filter-row"><div class="timeline-filter-label">กรองตาม Player</div><div class="timeline-filter">'+playerButtons+'</div></div>'
+    +'<div class="timeline-filter-row"><div class="timeline-filter-label">กรองตามประเภทงาน · เปิด/ปิดร่วมกับ Player ได้</div><div class="timeline-filter">'+categoryButtons+'</div></div>'
+    +'<div class="master-timeline">'+(rows||'<div class="zone-empty">ยังไม่มีเหตุการณ์ในตัวกรองนี้</div>')+'</div></div>';
 }
 
 /* ============================================================
@@ -3880,6 +4214,16 @@ async function handleClick(el){
   if(act==='leaveJoin'){
     await leaveCurrentPlayer();
     return;
+  }
+  if(act==='debriefFilter'){ STATE.debriefPlayerFilter=el.dataset.player||'ALL'; render(true); return; }
+  if(act==='debriefCategory'){
+    const key=el.dataset.category;
+    if(key==='ALL')STATE.debriefCategoryFilters={PRIMARY:true,SECONDARY:true,TREATMENT:true,TRANSFER:true};
+    else if(['PRIMARY','SECONDARY','TREATMENT','TRANSFER'].indexOf(key)>-1){
+      STATE.debriefCategoryFilters=Object.assign({PRIMARY:true,SECONDARY:true,TREATMENT:true,TRANSFER:true},STATE.debriefCategoryFilters||{});
+      STATE.debriefCategoryFilters[key]=!STATE.debriefCategoryFilters[key];
+    }
+    render(true);return;
   }
   if(act==='gmTab'){ STATE.gmTab = el.dataset.tab; render(true); return; }
   if(act==='gmStart'){ await gmStartGame(); return; }

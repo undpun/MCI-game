@@ -308,19 +308,26 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .zone-staff-row{font-size:10px;line-height:1.35;display:flex;gap:5px;align-items:flex-start;}
 .zone-staff-row b{color:var(--ink);}.zone-staff-work{color:var(--ink-dim);}
 .zone-flow-arrow{color:var(--ink-faint);font-size:10px;text-align:center;margin:-4px 0;}
-.vehicle-stack{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
-.vehicle-tile{--vc:#7c8494;border:1px solid color-mix(in srgb,var(--vc) 62%,var(--line));border-left:5px solid var(--vc);border-radius:8px;background:color-mix(in srgb,var(--vc) 8%,var(--bg-panel));padding:9px;min-width:0;}
+.vehicle-stack{display:flex;flex-direction:column;gap:18px;margin-top:10px;}
+.vehicle-tile{--vc:#7c8494;background:transparent;padding:3px 0 9px;min-width:0;}
 .vehicle-tile.ALS{--vc:#ef4444}.vehicle-tile.BLS{--vc:#eab308}.vehicle-tile.BUS{--vc:#22c55e}
 .vehicle-tile-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .vehicle-name{font-family:var(--font-mono);font-size:11px;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .vehicle-type{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--vc);border:1px solid color-mix(in srgb,var(--vc) 55%,transparent);border-radius:4px;padding:2px 5px;}
+.vehicle-visual{position:relative;width:100%;min-height:94px;margin:7px 0 5px;overflow:visible;}
+.vehicle-visual.BUS{min-height:150px;}
+.vehicle-art{position:absolute;inset:auto 0 0;width:100%;height:auto;display:block;margin:0;filter:drop-shadow(0 5px 5px rgba(0,0,0,.28));}
+.vehicle-visual.BUS .vehicle-art{height:150px;}
+.vehicle-art .vehicle-body{fill:var(--vc)}
+.vehicle-art .vehicle-panel{fill:color-mix(in srgb,var(--vc) 72%,#ffffff)}
+.vehicle-art .vehicle-window{fill:#a7d8e8}.vehicle-art .vehicle-wheel{fill:#111827}.vehicle-art .vehicle-hub{fill:#94a3b8}
 .vehicle-meta{font-size:9px;color:var(--ink-faint);margin-top:4px;line-height:1.4;}
-.vehicle-passengers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px;padding-top:7px;border-top:1px solid var(--line-soft);}
-.vehicle-passengers.BUS{grid-template-columns:repeat(5,minmax(0,1fr));}
-.vehicle-passenger{display:flex;flex-direction:column;align-items:center;min-width:0;padding:3px 1px;border-radius:5px;background:rgba(255,255,255,.035);}
-.vehicle-passenger.vp-RED{border-bottom:2px solid #ef4444}.vehicle-passenger.vp-YELLOW{border-bottom:2px solid #eab308}.vehicle-passenger.vp-GREEN{border-bottom:2px solid #22c55e}.vehicle-passenger.vp-BLACK{border-bottom:2px solid #64748b}
-.vehicle-passenger .vp-person{font-size:18px;line-height:1;}
-.vehicle-passenger .vp-no{font-family:var(--font-mono);font-size:8px;font-weight:800;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.vehicle-passengers{position:absolute;z-index:2;top:4px;left:42px;right:30px;display:grid;grid-template-columns:repeat(2,40px);justify-content:space-around;gap:4px;margin:0;padding:0;border:0;}
+.vehicle-passengers.BUS{top:8px;left:10px;right:10px;grid-template-columns:repeat(5,40px);justify-content:space-between;row-gap:4px;}
+.vehicle-passenger{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-width:40px;min-height:61px;padding:0;background:transparent;}
+.vehicle-passenger.vp-RED,.vehicle-passenger.vp-YELLOW,.vehicle-passenger.vp-GREEN,.vehicle-passenger.vp-BLACK{border:0;}
+.vehicle-passenger .pixel-human{flex:0 0 auto;margin-bottom:3px;}
+.vehicle-passenger .vp-no{font-family:var(--font-mono);font-size:9px;line-height:1.2;font-weight:800;white-space:nowrap;max-width:48px;overflow:hidden;text-overflow:ellipsis;background:var(--bg-panel);border:1px solid var(--line-soft);border-radius:4px;padding:2px 4px;}
 .vehicle-load-ok{color:#86efac}.vehicle-load-bad{color:#fca5a5}
 .parking-summary{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 2px;}
 .parking-summary span{font-family:var(--font-mono);font-size:9px;padding:3px 6px;border:1px solid var(--line-soft);border-radius:4px;color:var(--ink-dim);}
@@ -3646,9 +3653,20 @@ function dashboardVehicleType(v){
   const type=normU(v&&v.type||vehicleType(v&&v.name||''));
   return ['ALS','BLS','BUS'].indexOf(type)>-1?type:'OTHER';
 }
+function vehicleGraphicSvg(type){
+  if(type==='BUS'){
+    return '<svg class="vehicle-art" viewBox="0 0 240 150" role="img" aria-label="รถ BUS"><rect class="vehicle-body" x="5" y="4" width="230" height="132" rx="14"/><rect class="vehicle-panel" x="12" y="10" width="216" height="112" rx="8"/>'
+      +'<rect x="211" y="13" width="14" height="106" rx="4" fill="#dce9ee"/><rect x="17" y="16" width="188" height="94" rx="6" fill="rgba(255,255,255,.18)"/>'
+      +'<circle class="vehicle-wheel" cx="51" cy="136" r="12"/><circle class="vehicle-hub" cx="51" cy="136" r="5"/><circle class="vehicle-wheel" cx="190" cy="136" r="12"/><circle class="vehicle-hub" cx="190" cy="136" r="5"/></svg>';
+  }
+  return '<svg class="vehicle-art" viewBox="0 0 240 92" role="img" aria-label="รถพยาบาล '+type+'"><path class="vehicle-body" d="M16 30Q16 18 28 18H143Q153 18 158 28L173 42H217Q226 42 228 51V68H16Z"/>'
+    +'<rect class="vehicle-panel" x="30" y="27" width="105" height="33" rx="5"/><path class="vehicle-window" d="M159 30H183L204 48H173Z"/><rect class="vehicle-window" x="138" y="30" width="15" height="18" rx="2"/>'
+    +'<rect x="68" y="31" width="10" height="25" rx="2" fill="#ffffff"/><rect x="60" y="39" width="26" height="10" rx="2" fill="#ffffff"/><rect x="20" y="51" width="12" height="8" rx="2" fill="#f8fafc"/>'
+    +'<circle class="vehicle-wheel" cx="61" cy="69" r="13"/><circle class="vehicle-hub" cx="61" cy="69" r="5"/><circle class="vehicle-wheel" cx="190" cy="69" r="13"/><circle class="vehicle-hub" cx="190" cy="69" r="5"/></svg>';
+}
 function vehiclePassengerHtml(p,elapsed){
   const color=dashboardPatientColor(p,elapsed);
-  return '<div class="vehicle-passenger vp-'+color+'" title="Patient No. '+esc(p.id)+'"><span class="vp-person">🧍</span><span class="vp-no">No. '+esc(p.id)+'</span></div>';
+  return '<div class="vehicle-passenger vp-'+color+'" title="Patient No. '+esc(p.id)+'"><div class="pixel-human '+color+'"></div><span class="vp-no">No. '+esc(p.id)+'</span></div>';
 }
 function dashboardVehicleTileHtml(v,passengers,elapsed,isParking){
   const type=dashboardVehicleType(v);
@@ -3658,10 +3676,12 @@ function dashboardVehicleTileHtml(v,passengers,elapsed,isParking){
   const load=calcVehicleLoad(type,passengers.length,sitting,lying,hospitals.length);
   const destination=hospitals.length===1?hospitals[0]:hospitals.length>1?'หลายปลายทาง':'ยังไม่เลือกโรงพยาบาล';
   const status=isParking?'พร้อมใช้ · '+vehicleCapacityNote(type):(load.ok?'พร้อมส่ง':'ตรวจสอบ Load: '+load.label);
+  const onboard=passengers.length?'<div class="vehicle-passengers '+type+'">'+passengers.map(function(p){return vehiclePassengerHtml(p,elapsed);}).join('')+'</div>':'';
   return '<div class="vehicle-tile '+type+'"><div class="vehicle-tile-head"><div class="vehicle-name">'+esc(v.name)+'</div><div class="vehicle-type">'+type+'</div></div>'
+    +(passengers.length?'<div class="zone-staff-title" style="margin-top:7px;">ผู้ป่วยบนรถ '+passengers.length+' คน</div>':'')
+    +'<div class="vehicle-visual '+type+'">'+vehicleGraphicSvg(type)+onboard+'</div>'
     +'<div class="vehicle-meta '+(!isParking?(load.ok?'vehicle-load-ok':'vehicle-load-bad'):'')+'">'+esc(status)+'</div>'
     +(!isParking?'<div class="vehicle-meta">ปลายทาง: '+esc(destination)+' · นั่ง '+sitting+' · นอน '+lying+'</div>':'')
-    +(passengers.length?'<div class="vehicle-passengers '+type+'">'+passengers.map(function(p){return vehiclePassengerHtml(p,elapsed);}).join('')+'</div>':'')
     +'</div>';
 }
 function transferOperationsBoxHtml(elapsed){

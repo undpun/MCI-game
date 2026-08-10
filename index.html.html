@@ -308,6 +308,23 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .zone-staff-row{font-size:10px;line-height:1.35;display:flex;gap:5px;align-items:flex-start;}
 .zone-staff-row b{color:var(--ink);}.zone-staff-work{color:var(--ink-dim);}
 .zone-flow-arrow{color:var(--ink-faint);font-size:10px;text-align:center;margin:-4px 0;}
+.vehicle-stack{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.vehicle-tile{--vc:#7c8494;border:1px solid color-mix(in srgb,var(--vc) 62%,var(--line));border-left:5px solid var(--vc);border-radius:8px;background:color-mix(in srgb,var(--vc) 8%,var(--bg-panel));padding:9px;min-width:0;}
+.vehicle-tile.ALS{--vc:#ef4444}.vehicle-tile.BLS{--vc:#eab308}.vehicle-tile.BUS{--vc:#22c55e}
+.vehicle-tile-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.vehicle-name{font-family:var(--font-mono);font-size:11px;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vehicle-type{font-family:var(--font-mono);font-size:9px;font-weight:800;color:var(--vc);border:1px solid color-mix(in srgb,var(--vc) 55%,transparent);border-radius:4px;padding:2px 5px;}
+.vehicle-meta{font-size:9px;color:var(--ink-faint);margin-top:4px;line-height:1.4;}
+.vehicle-passengers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:8px;padding-top:7px;border-top:1px solid var(--line-soft);}
+.vehicle-passengers.BUS{grid-template-columns:repeat(5,minmax(0,1fr));}
+.vehicle-passenger{display:flex;flex-direction:column;align-items:center;min-width:0;padding:3px 1px;border-radius:5px;background:rgba(255,255,255,.035);}
+.vehicle-passenger.vp-RED{border-bottom:2px solid #ef4444}.vehicle-passenger.vp-YELLOW{border-bottom:2px solid #eab308}.vehicle-passenger.vp-GREEN{border-bottom:2px solid #22c55e}.vehicle-passenger.vp-BLACK{border-bottom:2px solid #64748b}
+.vehicle-passenger .vp-person{font-size:18px;line-height:1;}
+.vehicle-passenger .vp-no{font-family:var(--font-mono);font-size:8px;font-weight:800;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.vehicle-load-ok{color:#86efac}.vehicle-load-bad{color:#fca5a5}
+.parking-summary{display:flex;gap:7px;flex-wrap:wrap;margin:9px 0 2px;}
+.parking-summary span{font-family:var(--font-mono);font-size:9px;padding:3px 6px;border:1px solid var(--line-soft);border-radius:4px;color:var(--ink-dim);}
+.parking-busy{font-size:9px;color:var(--ink-faint);margin-top:8px;padding-top:7px;border-top:1px solid var(--line-soft);}
 .activity-table-wrap{max-height:360px;overflow:auto;border:1px solid var(--line-soft);border-radius:8px;}
 .activity-table-wrap table{margin:0;}
 .activity-table-wrap thead{position:sticky;top:0;background:var(--bg-panel);z-index:1;}
@@ -3625,18 +3642,79 @@ function zoneBoxHtml(zone,title,stationIds,elapsed,extraClass,systemLabel){
     +'<div class="zone-people">'+(patients.length?patients.map(function(p){return pixelPatientHtml(p,zone,elapsed);}).join(''):'<div class="zone-empty">ยังไม่มีผู้ป่วย</div>')+'</div>'
     +zoneStaffHtml(stationIds,elapsed,systemLabel)+'</div>';
 }
+function dashboardVehicleType(v){
+  const type=normU(v&&v.type||vehicleType(v&&v.name||''));
+  return ['ALS','BLS','BUS'].indexOf(type)>-1?type:'OTHER';
+}
+function vehiclePassengerHtml(p,elapsed){
+  const color=dashboardPatientColor(p,elapsed);
+  return '<div class="vehicle-passenger vp-'+color+'" title="Patient No. '+esc(p.id)+'"><span class="vp-person">🧍</span><span class="vp-no">No. '+esc(p.id)+'</span></div>';
+}
+function dashboardVehicleTileHtml(v,passengers,elapsed,isParking){
+  const type=dashboardVehicleType(v);
+  const sitting=passengers.filter(function(p){return effectiveCanWalk(p)==='yes';}).length;
+  const lying=passengers.length-sitting;
+  const hospitals=uniq(passengers.map(function(p){return p.hospital;}).filter(Boolean));
+  const load=calcVehicleLoad(type,passengers.length,sitting,lying,hospitals.length);
+  const destination=hospitals.length===1?hospitals[0]:hospitals.length>1?'หลายปลายทาง':'ยังไม่เลือกโรงพยาบาล';
+  const status=isParking?'พร้อมใช้ · '+vehicleCapacityNote(type):(load.ok?'พร้อมส่ง':'ตรวจสอบ Load: '+load.label);
+  return '<div class="vehicle-tile '+type+'"><div class="vehicle-tile-head"><div class="vehicle-name">'+esc(v.name)+'</div><div class="vehicle-type">'+type+'</div></div>'
+    +'<div class="vehicle-meta '+(!isParking?(load.ok?'vehicle-load-ok':'vehicle-load-bad'):'')+'">'+esc(status)+'</div>'
+    +(!isParking?'<div class="vehicle-meta">ปลายทาง: '+esc(destination)+' · นั่ง '+sitting+' · นอน '+lying+'</div>':'')
+    +(passengers.length?'<div class="vehicle-passengers '+type+'">'+passengers.map(function(p){return vehiclePassengerHtml(p,elapsed);}).join('')+'</div>':'')
+    +'</div>';
+}
+function transferOperationsBoxHtml(elapsed){
+  const transferPatients=STATE.patients.filter(function(p){return p.stage==='TRANSFER';});
+  const vehicleNames=STATE.vehicles.map(function(v){return v.name;});
+  const waiting=transferPatients.filter(function(p){return !p.vehicle||vehicleNames.indexOf(p.vehicle)<0;});
+  const loaded=STATE.vehicles.map(function(v){
+    return {vehicle:v,passengers:transferPatients.filter(function(p){return p.vehicle===v.name;})};
+  }).filter(function(x){return x.passengers.length>0;});
+  return '<div class="zone-box"><div class="zone-box-head"><div class="zone-box-title">Transfer</div><div class="zone-box-count">'+transferPatients.length+' patients · '+loaded.length+' vehicles</div></div>'
+    +'<div class="zone-staff-title" style="margin-top:10px;">รอขึ้นรถ</div><div class="zone-people">'+(waiting.length?waiting.map(function(p){return pixelPatientHtml(p,'TRANSFER',elapsed);}).join(''):'<div class="zone-empty">ไม่มีผู้ป่วยรอจัดรถ</div>')+'</div>'
+    +'<div class="zone-staff-title">รถที่รับผู้ป่วยแล้ว</div><div class="vehicle-stack">'+(loaded.length?loaded.map(function(x){return dashboardVehicleTileHtml(x.vehicle,x.passengers,elapsed,false);}).join(''):'<div class="zone-empty">ยังไม่มีรถรับผู้ป่วย</div>')+'</div>'
+    +zoneStaffHtml(['TRANSFER','DISPATCH'],elapsed)+'</div>';
+}
+function parkingBoxHtml(elapsed){
+  const assignedNames=uniq(STATE.patients.filter(function(p){return p.stage==='TRANSFER'&&p.vehicle;}).map(function(p){return p.vehicle;}));
+  const parked=STATE.vehicles.filter(function(v){return vehicleEffectiveStatus(v,elapsed)==='AVAILABLE'&&assignedNames.indexOf(v.name)<0;});
+  const busy=STATE.vehicles.filter(function(v){return vehicleEffectiveStatus(v,elapsed)!=='AVAILABLE'&&assignedNames.indexOf(v.name)<0;});
+  const counts={ALS:0,BLS:0,BUS:0};parked.forEach(function(v){const type=dashboardVehicleType(v);if(counts[type]!=null)counts[type]++;});
+  return '<div class="zone-box compact"><div class="zone-box-head"><div class="zone-box-title">Parking</div><div class="zone-box-count">พร้อมใช้ '+parked.length+' คัน</div></div>'
+    +'<div class="parking-summary"><span>ALS '+counts.ALS+'</span><span>BLS '+counts.BLS+'</span><span>BUS '+counts.BUS+'</span></div>'
+    +'<div class="vehicle-stack">'+(parked.length?parked.map(function(v){return dashboardVehicleTileHtml(v,[],elapsed,true);}).join(''):'<div class="zone-empty">ไม่มีรถว่างใน Parking</div>')+'</div>'
+    +(busy.length?'<div class="parking-busy">ออกปฏิบัติการ '+busy.length+' คัน · '+busy.map(function(v){return esc(v.name);}).join(', ')+'</div>':'')
+    +'</div>';
+}
+function hospitalZoneBoxHtml(name,elapsed){
+  const patients=STATE.patients.filter(function(p){return dashboardPatientZone(p)==='HOSPITAL'&&(p.hospital||'ยังไม่ระบุปลายทาง')===name;}).sort(function(a,b){return (a.transferTime||a.createdAt||0)-(b.transferTime||b.createdAt||0);});
+  const hospital=STATE.hospitals.find(function(h){return h.name===name;});
+  const capacity=hospital?'<div class="hint" style="margin:7px 0 0;">Capacity · RED '+hospital.redUsed+'/'+hospital.redCap+' · YELLOW '+hospital.yellowUsed+'/'+hospital.yellowCap+' · GREEN '+hospital.greenUsed+'/'+hospital.greenCap+'</div>':'';
+  return '<div class="zone-box compact"><div class="zone-box-head"><div class="zone-box-title">🏥 '+esc(name)+'</div><div class="zone-box-count">'+patients.length+' patients</div></div>'
+    +capacity+'<div class="zone-people">'+(patients.length?patients.map(function(p){return pixelPatientHtml(p,'HOSPITAL',elapsed);}).join(''):'<div class="zone-empty">ยังไม่มีผู้ป่วย</div>')+'</div>'
+    +zoneStaffHtml([],elapsed,hospitalTreatmentEnabled(STATE.gc)?'Hospital Sim':null)+'</div>';
+}
+function gmHospitalColumnHtml(elapsed){
+  const configured=STATE.hospitals.map(function(h){return h.name;}).filter(Boolean);
+  const assigned=STATE.patients.filter(function(p){return dashboardPatientZone(p)==='HOSPITAL';}).map(function(p){return p.hospital||'ยังไม่ระบุปลายทาง';});
+  const names=uniq(configured.concat(assigned));
+  if(!names.length)return '<div class="zone-box compact"><div class="zone-box-head"><div class="zone-box-title">Hospital</div><div class="zone-box-count">0 hospitals</div></div><div class="zone-empty">ยังไม่ได้กำหนดโรงพยาบาล</div></div>';
+  return names.map(function(name){return hospitalZoneBoxHtml(name,elapsed);}).join('');
+}
 function gmZoneFlowBoard(elapsed){
   return '<div class="zone-flow-board">'
-    +'<div class="zone-flow-column">'+zoneBoxHtml('PRIMARY','Primary Triage',['PRIMARY'],elapsed)+'</div>'
-    +'<div class="zone-flow-column">'+zoneBoxHtml('SECONDARY','Secondary Triage',['SECONDARY'],elapsed)+'</div>'
+    +'<div class="zone-flow-column">'
+      +zoneBoxHtml('PRIMARY','Primary Triage',['PRIMARY'],elapsed,'compact')
+      +zoneBoxHtml('SECONDARY','Secondary Triage',['SECONDARY'],elapsed,'compact')
+    +'</div>'
     +'<div class="zone-flow-column">'
       +zoneBoxHtml('TX_RED','Treatment RED',['TX_RED'],elapsed,'compact red')
       +zoneBoxHtml('TX_YELLOW','Treatment YELLOW',['TX_YELLOW'],elapsed,'compact yellow')
       +zoneBoxHtml('TX_GREEN','Treatment GREEN',['TX_GREEN'],elapsed,'compact green')
-      +'<div class="zone-flow-arrow">↓ ส่งต่อหลัง Treatment</div>'
-      +zoneBoxHtml('TRANSFER','Transfer',['TRANSFER','DISPATCH'],elapsed,'compact')
     +'</div>'
-    +'<div class="zone-flow-column">'+zoneBoxHtml('HOSPITAL','Hospital',['HOSPITAL'],elapsed,'',hospitalTreatmentEnabled(STATE.gc)?'Hospital Sim':null)+'</div>'
+    +'<div class="zone-flow-column">'+transferOperationsBoxHtml(elapsed)+parkingBoxHtml(elapsed)+'</div>'
+    +'<div class="zone-flow-column">'+gmHospitalColumnHtml(elapsed)+'</div>'
   +'</div>';
 }
 

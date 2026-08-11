@@ -329,6 +329,15 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .transfer-vehicle-choice .vehicle-visual.BUS{min-height:110px;}
 .transfer-vehicle-choice .vehicle-visual.BUS .vehicle-art{height:110px;}
 .parking-vehicle-label{display:inline-block;font-family:var(--font-mono);font-size:11px;font-weight:900;background:var(--bg-panel);border:1px solid color-mix(in srgb,var(--vc) 55%,var(--line));border-radius:5px;padding:3px 7px;color:var(--vc);}
+.transfer-returning{margin-top:12px;padding-top:10px;border-top:1px solid var(--line-soft);}
+.transfer-return-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:8px;}
+.transfer-return-card{--vc:#7c8494;border:1px solid var(--line-soft);border-radius:8px;background:var(--bg-panel);padding:8px;text-align:center;min-width:0;}
+.transfer-return-card.ALS{--vc:#ef4444}.transfer-return-card.BLS{--vc:#eab308}.transfer-return-card.BUS{--vc:#22c55e}
+.transfer-return-card .vehicle-visual{min-height:58px;margin:3px 0;}
+.transfer-return-card .vehicle-visual.BUS{min-height:82px;}
+.transfer-return-card .vehicle-visual.BUS .vehicle-art{height:82px;}
+.transfer-return-phase{font-size:9px;color:var(--ink-dim);line-height:1.35;overflow-wrap:anywhere;}
+.transfer-return-time{margin-top:4px;font-size:10px;font-weight:800;color:var(--accent);}
 .transfer-local-note{margin-left:auto;font-size:9px;color:var(--accent);border:1px solid rgba(47,211,199,.35);background:rgba(47,211,199,.08);border-radius:999px;padding:3px 7px;font-weight:700;}
 .transfer-staging{margin-top:14px;background:linear-gradient(135deg,rgba(47,211,199,.055),transparent 46%),var(--bg-panel-2);border:1px solid rgba(47,211,199,.38);border-radius:10px;padding:14px;}
 .transfer-staging-layout{display:grid;grid-template-columns:minmax(260px,1.1fr) minmax(220px,.8fr);gap:16px;align-items:start;}
@@ -357,7 +366,7 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .transfer-clinical-list{margin-top:10px;display:grid;gap:6px;}
 .transfer-clinical-item{border:1px solid var(--line-soft);border-radius:7px;background:var(--bg-panel);padding:7px 8px;font-size:10px;line-height:1.45;color:var(--ink-dim);}
 .transfer-clinical-item b{color:var(--ink);font-family:var(--font-mono);}
-.tx-countdown{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);}
+.tx-countdown,.live-countdown{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);}
 .transfer-sendbar{position:sticky;bottom:10px;background:var(--bg-panel);border:1px solid var(--line);border-radius:10px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.28);}
 .transfer-load-summary{font-size:11px;color:var(--ink-dim);line-height:1.55;margin:8px 0;}
 .btn.selected-choice{background:var(--accent);border-color:var(--accent);color:#04211e;}
@@ -2584,7 +2593,20 @@ function updateTreatmentCountdownsOnly(){
     if(textEl&&textEl.textContent!==nextText)textEl.textContent=nextText;
     if(remain<=0&&!el.dataset.finished){el.dataset.finished='1';completed=true;}
   });
+  document.querySelectorAll('.live-countdown[data-countdown-end]').forEach(function(el){
+    const remain=Math.max(0,Math.ceil((Number(el.dataset.countdownEnd)-elapsed)*60));
+    const textEl=el.querySelector('.live-countdown-text');
+    const nextText=remain>0?(el.dataset.countdownPrefix||'เหลือ ')+remain+'s':(el.dataset.countdownDone||'ครบเวลา');
+    if(textEl&&textEl.textContent!==nextText)textEl.textContent=nextText;
+    if(remain<=0&&!el.dataset.finished){el.dataset.finished='1';completed=true;}
+  });
   if(completed){STATE._snapshot=null;scheduleBackgroundRender();}
+}
+function liveCountdownHtml(endElapsed,elapsed,doneText,prefix){
+  const remain=Math.max(0,Math.ceil((Number(endElapsed)-elapsed)*60));
+  const safePrefix=prefix==null?'เหลือ ':String(prefix);
+  const safeDone=doneText||'ครบเวลา';
+  return '<span class="live-countdown" data-countdown-end="'+Number(endElapsed)+'" data-countdown-prefix="'+esc(safePrefix)+'" data-countdown-done="'+esc(safeDone)+'"><span class="live-countdown-text">'+esc(remain>0?safePrefix+remain+'s':safeDone)+'</span></span>';
 }
 let lastLockVisualSnapshot='{}';
 function updateExpiredLockVisualsOnly(){
@@ -3954,6 +3976,15 @@ function viewTransfer(){
     return '<button class="transfer-vehicle-choice '+type+'" data-act="transferVehicleLocal" data-vehicle="'+esc(v.name)+'" title="เลือก '+esc(v.name)+'">'
       +'<span class="parking-vehicle-label">'+esc(vehicleDisplayName(v))+'</span><div class="vehicle-visual '+type+'">'+vehicleGraphicSvg(type)+'</div></button>';
   }).join('');
+  const returningVehicles=busyVehicles.map(function(v){
+    const type=dashboardVehicleType(v);
+    const reachedHospital=v.busyStartElapsed!=null&&v.outboundMin!=null&&elapsed>=Number(v.busyStartElapsed)+Number(v.outboundMin);
+    const phase=reachedHospital?'กำลังกลับจาก ':'กำลังไป ';
+    return '<div class="transfer-return-card '+type+'"><span class="parking-vehicle-label">'+esc(vehicleDisplayName(v))+'</span>'
+      +'<div class="vehicle-visual '+type+'">'+vehicleGraphicSvg(type)+'</div>'
+      +'<div class="transfer-return-phase">'+phase+esc(v.busyHospital||'โรงพยาบาล')+'</div>'
+      +'<div class="transfer-return-time">'+liveCountdownHtml(v.busyUntilElapsed,elapsed,'พร้อมใช้แล้ว','พร้อมใช้อีก ')+'</div></div>';
+  }).join('');
   function waitingPatientChoice(p){
     const dead=patientIsDead(p,elapsed),color=p.secondary||'GREEN',otherLock=patientLockedByOther(p.id);
     const disabled=!selectedVehicle||dead||!!otherLock;
@@ -3995,7 +4026,7 @@ function viewTransfer(){
     +'<div class="transfer-workflow">'
       +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">1</span>ลานจอดรถ <span class="badge neutral">ว่าง '+availableVehicles.length+' คัน</span></div>'
         +'<div class="hint" style="margin-bottom:10px;">รถที่ทุกหน้าจอเห็นตรงกัน · เลือกแล้วจะย้ายไปช่องเตรียมส่งเฉพาะหน้าจอนี้</div><div class="transfer-vehicle-grid">'+(vehicleChoices||'<span class="hint">ไม่มีรถว่างในลานจอด</span>')+'</div>'
-        +(busyVehicles.length?'<div class="parking-busy">ออกปฏิบัติการ '+busyVehicles.length+' คัน · '+busyVehicles.map(function(v){return esc(vehicleDisplayName(v));}).join(', ')+'</div>':'')+'</div>'
+        +(busyVehicles.length?'<div class="transfer-returning"><div class="transfer-row-head"><b>รถออกปฏิบัติการ / กำลังกลับ</b><span class="badge wait">'+busyVehicles.length+' คัน</span></div><div class="transfer-return-grid">'+returningVehicles+'</div></div>':'')+'</div>'
       +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">2</span>ผู้ป่วยรอขึ้นรถ <span class="badge neutral">ข้อมูลกลาง '+queue.length+' คน</span></div>'+colorRows
         +(black.length?'<div class="transfer-patient-row"><div class="transfer-row-head"><b>BLACK</b><span class="badge BLACK">'+black.length+' คน</span></div><div class="transfer-patient-grid">'+black.filter(function(p){return selectedIds.indexOf(normU(p.id))<0;}).map(waitingPatientChoice).join('')+'</div></div>':'')
         +(!selectedVehicle?'<div class="hint" style="margin-top:10px;">เลือกรถก่อน จึงจะกดเลือกผู้ป่วยขึ้นรถได้</div>':'')+'</div>'
@@ -4294,7 +4325,7 @@ function gmTabControl(){
   const hospitalTreating=hospitalPatients.filter(function(p){return hospitalCarePhase(p,elapsed)==='TREATING';}).length;
   const hospitalRows=hospitalPatients.sort(function(a,b){return (a.hospitalCare&&a.hospitalCare.outcomeAt||0)-(b.hospitalCare&&b.hospitalCare.outcomeAt||0);}).map(function(p){
     const care=p.hospitalCare||{};
-    return '<tr><td class="pid" style="font-size:13px;">#'+esc(p.id)+'</td><td>'+esc(p.hospital||'—')+'</td><td>'+gmPatientActivityHtml(p,elapsed)+'</td><td>'+gmTreatmentHistoryHtml(p,elapsed)+'</td><td>'+fmtMin(care.outcomeAt)+'</td><td>'+(p.transportMismatch?'<span class="badge bad">รถไม่ตรงโจทย์</span>':'<span class="badge ok">รถตรงโจทย์</span>')+'</td></tr>';
+    return '<tr><td class="pid" style="font-size:13px;">#'+esc(p.id)+'</td><td>'+esc(p.hospital||'—')+'</td><td>'+gmPatientActivityHtml(p,elapsed)+'</td><td>'+gmTreatmentHistoryHtml(p,elapsed)+'</td><td><span class="badge wait">'+liveCountdownHtml(care.outcomeAt,elapsed,'กำลังสรุปผล')+'</span><div class="hint">นาทีเกม '+fmtMin(care.outcomeAt)+'</div></td><td>'+(p.transportMismatch?'<span class="badge bad">รถไม่ตรงโจทย์</span>':'<span class="badge ok">รถตรงโจทย์</span>')+'</td></tr>';
   }).join('');
   const activityRows=STATE.patients.filter(function(p){return p.stage!=='CLOSED';}).sort(function(a,b){return gmStageSort(a)-gmStageSort(b)||(a.createdAt||0)-(b.createdAt||0);}).map(function(p){
     return '<tr><td class="pid" style="font-size:13px;">#'+esc(p.id)+'</td><td>'+gmPatientZoneHtml(p)+'</td><td>'+gmPatientActivityHtml(p,elapsed)+'</td><td>'+gmTreatmentHistoryHtml(p,elapsed)+'</td></tr>';
@@ -4394,14 +4425,12 @@ function gmPatientActivityHtml(p,elapsed){
   if(p.stage==='HOSPITAL'&&p.hospitalCare){
     const phase=hospitalCarePhase(p,elapsed);
     if(phase==='IN_TRANSIT'){
-      const remain=Math.max(0,round1((p.hospitalCare.arrivalAt-elapsed)*60));
-      return '<span class="badge wait">🚑 ไป '+esc(p.hospital||'โรงพยาบาล')+' · '+remain+'s</span>';
+      return '<span class="badge wait">🚑 ไป '+esc(p.hospital||'โรงพยาบาล')+' · '+liveCountdownHtml(p.hospitalCare.arrivalAt,elapsed,'ถึงโรงพยาบาล')+'</span>';
     }
   }
   const active=allTreatmentSlots(p).find(function(slot){return slot&&txSlotStatus(slot,elapsed)==='IN_PROGRESS';});
   if(active){
-    const remain=Math.max(0,round1((active.startedAt+active.durationSec/60-elapsed)*60));
-    return '<span class="badge wait"><span class="pulse-dot"></span> '+esc(active.item)+' · '+treatmentLocationLabel(active.location)+' · '+remain+'s</span>';
+    return '<span class="badge wait"><span class="pulse-dot"></span> '+esc(active.item)+' · '+treatmentLocationLabel(active.location)+' · '+liveCountdownHtml(active.startedAt+active.durationSec/60,elapsed,'เสร็จ')+'</span>';
   }
   if(p.stage==='PRIMARY')return p.primary?'รอส่ง Secondary':'รอ Primary Triage';
   if(p.stage==='SECONDARY')return p.secondary?'รอส่ง Treatment':'รอ Secondary Triage';
@@ -4412,8 +4441,7 @@ function gmPatientActivityHtml(p,elapsed){
   if(p.stage==='TRANSFER')return (p.vehicle||p.hospital)?'จัดรถ '+esc(p.vehicle||'—')+' → '+esc(p.hospital||'—'):'รอเลือกรถและโรงพยาบาล';
   if(p.stage==='HOSPITAL')return '<span class="badge wait">รอผลการรักษาที่โรงพยาบาล</span>';
   if(p.stage==='TRANSIT'&&p.transit){
-    const remain=Math.max(0,round1((p.transit.arriveElapsed-elapsed)*60));
-    return 'ไป '+(p.transit.toStage==='TX'?'Treatment '+esc(p.transit.txZone||''):esc(p.transit.toStage))+' · '+remain+'s';
+    return 'ไป '+(p.transit.toStage==='TX'?'Treatment '+esc(p.transit.txZone||''):esc(p.transit.toStage))+' · '+liveCountdownHtml(p.transit.arriveElapsed,elapsed,'ถึงปลายทาง');
   }
   return '—';
 }

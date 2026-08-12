@@ -302,6 +302,7 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .pixel-human.gray{--pc:#7c8494}.pixel-human.gray:before{filter:grayscale(1);}.pixel-human.RED{--pc:#ef4444}.pixel-human.YELLOW{--pc:#eab308}.pixel-human.GREEN{--pc:#22c55e}.pixel-human.BLACK{--pc:#111827;}
 .pixel-label{position:relative;z-index:1;font-family:var(--font-mono);font-size:10px;line-height:1.2;font-weight:800;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;background:var(--bg-panel);border:1px solid var(--line-soft);border-radius:4px;padding:2px 4px;}
 .pixel-sub{font-size:9px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.pixel-zone-time{font-family:var(--font-mono);font-size:8px;line-height:1.25;color:var(--accent);white-space:nowrap;text-align:center;margin-top:2px;}
 .player-census{background:var(--bg-panel-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;}
 .player-census-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
 .player-census-title{font-size:12px;font-weight:800;letter-spacing:.035em;text-transform:uppercase;}
@@ -1922,10 +1923,10 @@ function resolveTransits(patients, elapsed){
     if(elapsed < p.transit.arriveElapsed) return p;
     changed = true;
     if(p.transit.toStage==='SECONDARY'){
-      return Object.assign({}, p, {stage:'SECONDARY', transit:null});
+      return Object.assign({}, p, {stage:'SECONDARY', secondaryArrivalTime:p.secondaryArrivalTime!=null?p.secondaryArrivalTime:p.transit.arriveElapsed, transit:null});
     }
     if(p.transit.toStage==='TX'){
-      return Object.assign({}, p, {stage:'TX', txZone:p.transit.txZone, transit:null});
+      return Object.assign({}, p, {stage:'TX', txZone:p.transit.txZone, txArrivalTime:p.txArrivalTime!=null?p.txArrivalTime:p.transit.arriveElapsed, transit:null});
     }
     return Object.assign({}, p, {transit:null});
   });
@@ -3233,7 +3234,7 @@ async function txSetDispo(id, dispo){
     // time — that must stay hidden from players. Missing required treatments may
     // still be completed by the virtual hospital after travel time has elapsed.
     let next;
-    if(dispo==='TRANSFER') next=Object.assign({},p,{dispo:'TRANSFER',transferOrder:maxOrder(patients,'transferOrder')+1,stage:'TRANSFER',events:(p.events||[]).concat([{t:elapsed,type:'TO_TRANSFER',by:STATE.me.name||''}])});
+    if(dispo==='TRANSFER') next=Object.assign({},p,{dispo:'TRANSFER',transferOrder:maxOrder(patients,'transferOrder')+1,transferArrivalTime:elapsed,stage:'TRANSFER',events:(p.events||[]).concat([{t:elapsed,type:'TO_TRANSFER',by:STATE.me.name||''}])});
     else next=Object.assign({},p,{dispo:'DISCHARGE',stage:'CLOSED',dischargeTime:elapsed,events:(p.events||[]).concat([{t:elapsed,type:'DISCHARGE_TX',by:STATE.me.name||''}])},dischargeOutcomeFields(p,findCase(STATE.cases,p.id),elapsed,'DISCHARGE_TX'));
     const copy=patients.slice();copy[idx]=next;return copy;
   });
@@ -3731,6 +3732,45 @@ function fmtClock(elapsedMin){
   const s = totalSec%60;
   return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
 }
+function patientEventTime(p,type){
+  const event=(p&&p.events||[]).find(function(e){return e&&e.type===type;});
+  return event&&Number.isFinite(Number(event.t))?Number(event.t):null;
+}
+function patientZoneEntryTime(p,zone){
+  if(!p)return 0;
+  if(zone==='PRIMARY')return Number(p.createdAt)||0;
+  if(zone==='SECONDARY'){
+    if(p.stage==='TRANSIT'&&p.transit&&p.transit.toStage==='SECONDARY')return Number(p.transit.arriveElapsed)||0;
+    return p.secondaryArrivalTime!=null?Number(p.secondaryArrivalTime):(p.primaryTime!=null?Number(p.primaryTime):Number(p.createdAt)||0);
+  }
+  if(String(zone||'').indexOf('TX_')===0){
+    if(p.stage==='TRANSIT'&&p.transit&&p.transit.toStage==='TX')return Number(p.transit.arriveElapsed)||0;
+    return p.txArrivalTime!=null?Number(p.txArrivalTime):(p.secondaryTime!=null?Number(p.secondaryTime):Number(p.createdAt)||0);
+  }
+  if(zone==='TRANSFER'){
+    const eventTime=patientEventTime(p,'TO_TRANSFER');
+    return p.transferArrivalTime!=null?Number(p.transferArrivalTime):(eventTime!=null?eventTime:(p.txStartTime!=null?Number(p.txStartTime):Number(p.createdAt)||0));
+  }
+  if(zone==='HOSPITAL'){
+    if(p.hospitalArrivalTime!=null)return Number(p.hospitalArrivalTime);
+    if(p.hospitalCare&&p.hospitalCare.arrivalAt!=null)return Number(p.hospitalCare.arrivalAt);
+    if(p.hospitalPlannedArrivalTime!=null)return Number(p.hospitalPlannedArrivalTime);
+    return p.transferTime!=null?Number(p.transferTime):Number(p.createdAt)||0;
+  }
+  return Number(p.createdAt)||0;
+}
+function zoneEntryClockHtml(p,zone){
+  const t=patientZoneEntryTime(p,zone);
+  const wallTime=STATE.gc&&STATE.gc.startTime?new Date(Number(STATE.gc.startTime)+t*60000).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):fmtClock(t);
+  const projected=p.stage==='TRANSIT'||(zone==='HOSPITAL'&&p.stage==='HOSPITAL'&&p.hospitalCare&&elapsedMinutes(STATE.gc)<Number(p.hospitalCare.arrivalAt));
+  return '<div class="pixel-zone-time">'+(projected?'ถึง ':'เข้า ')+esc(wallTime)+'</div>';
+}
+function sortByZoneEntry(zone){
+  return function(a,b){
+    const diff=patientZoneEntryTime(a,zone)-patientZoneEntryTime(b,zone);
+    return diff||String(a.id||'').localeCompare(String(b.id||''),undefined,{numeric:true});
+  };
+}
 
 function viewSceneWaiting(){
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">รอ GM</div><h1>🗺️ กำลังเตรียมที่เกิดเหตุ</h1></div></div>'
@@ -3810,12 +3850,13 @@ function transitBadgeHtml(p, elapsed){
   const remain=Math.max(0,round1((p.transit.arriveElapsed-elapsed)*60));
   return '<div class="subrow"><span class="badge wait"><span class="pulse-dot"></span> กำลังเคลื่อนย้าย เหลือ '+remain+'s</span></div>';
 }
-function anonymousCensusHtml(patients,title,colorFn){
-  const icons=(patients||[]).map(function(p){
+function anonymousCensusHtml(patients,title,colorFn,zone){
+  const sorted=(patients||[]).slice().sort(sortByZoneEntry(zone||''));
+  const icons=sorted.map(function(p){
     const color=(colorFn&&colorFn(p))||'gray';
     const lock=patientLockFor(p.id);
     const lockLabel=lock?'<div class="patient-lock-label '+(patientLockOwnedByMe(lock)?'mine':'')+'">'+(patientLockOwnedByMe(lock)?'คุณกำลังทำ':'กำลังทำ: '+esc(lock.ownerName))+'</div>':'';
-    return '<div class="anonymous-person"><div class="pixel-human '+esc(color)+'"></div><div class="pixel-label">No. '+esc(p.id)+'</div>'+lockLabel+'</div>';
+    return '<div class="anonymous-person"><div class="pixel-human '+esc(color)+'"></div><div class="pixel-label">No. '+esc(p.id)+'</div>'+zoneEntryClockHtml(p,zone||'')+lockLabel+'</div>';
   }).join('');
   return '<div class="player-census"><div class="player-census-head"><div class="player-census-title">'+esc(title)+'</div><div class="player-census-count">'+patients.length+' patients</div></div>'
     +'<div class="anonymous-people">'+(icons||'<span class="hint">ยังไม่มีผู้ป่วยในโซน</span>')+'</div></div>';
@@ -3842,7 +3883,7 @@ function focusedPatient(key,list){
 }
 function viewPrimary(){
   const elapsed=elapsedMinutes(STATE.gc);
-  const queue=STATE.patients.filter(function(p){return p.stage==='PRIMARY';}).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0);});
+  const queue=STATE.patients.filter(function(p){return p.stage==='PRIMARY';}).sort(sortByZoneEntry('PRIMARY'));
   const capacity=triageStaffCount('PRIMARY'),used=countTriageTreatmentInProgress(STATE.patients,'PRIMARY',elapsed),staffFree=used<capacity;
   const p=focusedPatient('PRIMARY',queue);
   let card='';
@@ -3854,7 +3895,7 @@ function viewPrimary(){
       +'</div>';
   }
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🩺 Primary Triage</h1></div><div class="capbar">Staff <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
-    +anonymousCensusHtml(queue,'ผู้ป่วยใน Primary Triage',function(p){return p.primary||'gray';})
+    +anonymousCensusHtml(queue,'ผู้ป่วยใน Primary Triage',function(p){return p.primary||'gray';},'PRIMARY')
     +patientSearchHtml('PRIMARY','primaryIdInput','กรอก Patient No. เพื่อรับผู้ป่วยใหม่ หรือเปิดผู้ป่วยที่อยู่ในโซน',true)
     +(card||'<div class="focused-patient-empty">กรอก No. เพื่อเปิดรายละเอียดผู้ป่วยบนหน้าจอเครื่องนี้</div>');
 }
@@ -3864,7 +3905,7 @@ function viewPrimary(){
 ============================================================ */
 function viewSecondary(){
   const elapsed=elapsedMinutes(STATE.gc);
-  const queue=STATE.patients.filter(function(p){return p.stage==='SECONDARY';}).sort(function(a,b){return (a.primaryOrder||0)-(b.primaryOrder||0);});
+  const queue=STATE.patients.filter(function(p){return p.stage==='SECONDARY';}).sort(sortByZoneEntry('SECONDARY'));
   const capacity=triageStaffCount('SECONDARY'),used=countTriageTreatmentInProgress(STATE.patients,'SECONDARY',elapsed),staffFree=used<capacity;
   const p=focusedPatient('SECONDARY',queue);
   let card='';
@@ -3874,7 +3915,7 @@ function viewSecondary(){
       +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Secondary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Secondary triage</span>'+triageButtonsHtml(p.id,'secondary',p.secondary,'secondarySet',triageBlocked)+'</div>'+triageTreatmentHtml(p,'SECONDARY',elapsed)+'<div class="subrow">'+(isBlack?'':'<button class="btn sm primary" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="TX" '+((!p.secondary||busy)?'disabled':'')+'>ส่งต่อ Treatment →</button>')+'<button class="btn sm" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+((!p.secondary||busy)?'disabled':'')+'>Discharge</button></div>')+'</div>';
   }
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🔎 Secondary Triage</h1></div><div class="capbar">Staff <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
-    +anonymousCensusHtml(queue,'ผู้ป่วยใน Secondary Triage',function(p){return p.primary||'gray';})
+    +anonymousCensusHtml(queue,'ผู้ป่วยใน Secondary Triage',function(p){return p.primary||'gray';},'SECONDARY')
     +patientSearchHtml('SECONDARY','secondaryIdInput','กรอก Patient No. เพื่อเปิดผู้ป่วย',false)
     +(card||'<div class="focused-patient-empty">กรอก No. ก่อนทำ Secondary Triage</div>');
 }
@@ -3925,7 +3966,7 @@ function triageTreatmentHtml(p,stage,elapsed){
 
 function viewTx(zone){
   const elapsed=elapsedMinutes(STATE.gc), capacity=treatmentStaffCount(zone), used=countZoneInProgress(STATE.patients,zone,elapsed);
-  const queue=STATE.patients.filter(function(p){return p.stage==='TX'&&p.txZone===zone;}).sort(function(a,b){return (a.secondaryOrder||0)-(b.secondaryOrder||0);});
+  const queue=STATE.patients.filter(function(p){return p.stage==='TX'&&p.txZone===zone;}).sort(sortByZoneEntry('TX_'+zone));
   const focusKey='TX_'+zone;
   const p=focusedPatient(focusKey,queue);
   let card='';
@@ -3938,7 +3979,7 @@ function viewTx(zone){
       +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+visibleTxSlotIndexes(p).map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:6px;">ระบบจะไม่บอกว่ารักษาถูกหรือครบตามเวลาหรือไม่ — ทีมต้องตัดสินใจส่งต่อเอง ผลจะปรากฏเมื่อผู้ป่วยถึงโรงพยาบาล/Debrief</div>')+'</div>';
   }
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
-    +anonymousCensusHtml(queue,'ผู้ป่วยใน Treatment '+zone,function(){return zone;})
+    +anonymousCensusHtml(queue,'ผู้ป่วยใน Treatment '+zone,function(){return zone;},'TX_'+zone)
     +patientSearchHtml(focusKey,'txIdInput_'+zone,'กรอก Patient No. ก่อนเริ่ม Treatment',false)
     +'<div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'
     +(card||'<div class="focused-patient-empty">กรอก No. ก่อนเปิด Treatment ของผู้ป่วย</div>');
@@ -3956,7 +3997,7 @@ function transferTreatmentSummary(p,elapsed){
 }
 function viewTransfer(){
   const elapsed=elapsedMinutes(STATE.gc);
-  const queue=STATE.patients.filter(function(p){return p.stage==='TRANSFER';}).sort(function(a,b){return (a.transferOrder||0)-(b.transferOrder||0);});
+  const queue=STATE.patients.filter(function(p){return p.stage==='TRANSFER';}).sort(sortByZoneEntry('TRANSFER'));
   const transferUi=STATE.ui.transfer||{vehicle:null,patientIds:[],hospital:null};
   const selectedVehicle=STATE.vehicles.find(function(v){return v.name===transferUi.vehicle&&vehicleEffectiveStatus(v,elapsed)==='AVAILABLE';})||null;
   const selectedIds=selectedVehicle?(transferUi.patientIds||[]).filter(function(id){
@@ -3990,13 +4031,14 @@ function viewTransfer(){
     const disabled=!selectedVehicle||dead||!!otherLock;
     return '<button class="transfer-patient-choice" data-act="transferPatientLocal" data-pid="'+esc(p.id)+'" '+(disabled?'disabled':'')+' title="'+(otherLock?'No. นี้กำลังจัดโดย '+esc(otherLock.ownerName):'นำ Patient No. '+esc(p.id)+' ขึ้นรถ')+'">'
       +'<div class="pixel-human '+esc(color)+'"></div><span class="vp-no">No. '+esc(p.id)+'</span><span class="mobility">'+(effectiveCanWalk(p)==='yes'?'🚶 นั่ง':'🛏️ นอน')+'</span>'
+      +zoneEntryClockHtml(p,'TRANSFER')
       +'<span class="transfer-clinical"><b>Dx:</b> '+esc(transferDiagnosis(p))+'<br><b>Tx:</b> '+esc(transferTreatmentSummary(p,elapsed))+'</span>'
       +(otherLock?'<span class="transfer-lock">กำลังจัดโดย '+esc(otherLock.ownerName)+'</span>':'')+'</button>';
   }
   function stagingPassenger(p){
     const color=dashboardPatientColor(p,elapsed);
     return '<button class="vehicle-passenger staging-passenger vp-'+color+'" data-act="transferPatientLocal" data-pid="'+esc(p.id)+'" title="นำ Patient No. '+esc(p.id)+' ลงจากรถ">'
-      +'<div class="pixel-human '+color+'"></div><span class="vp-no">No. '+esc(p.id)+'</span></button>';
+      +'<div class="pixel-human '+color+'"></div><span class="vp-no">No. '+esc(p.id)+'</span>'+zoneEntryClockHtml(p,'TRANSFER')+'</button>';
   }
   function stagingVehicleHtml(){
     if(!selectedVehicle)return '<div class="staging-placeholder"><div class="big">🚑</div>เลือกรถจากลานจอดก่อน<br>รถที่เลือกจะย้ายมาอยู่ตรงนี้เฉพาะหน้าจอของคุณ</div>';
@@ -4173,7 +4215,7 @@ function pixelPatientHtml(p,zone,elapsed){
   const color=dashboardPatientColor(p,elapsed);
   return '<div class="pixel-patient" title="#'+esc(p.id)+' · '+esc(dashboardPatientSub(p,zone,elapsed))+'">'
     +'<div class="pixel-human '+color+'"></div><div class="pixel-label">No. '+esc(p.id)+'</div>'
-    +'<div class="pixel-sub">'+esc(dashboardPatientSub(p,zone,elapsed))+'</div></div>';
+    +zoneEntryClockHtml(p,zone)+'<div class="pixel-sub">'+esc(dashboardPatientSub(p,zone,elapsed))+'</div></div>';
 }
 function zoneStaffActivity(name,stationIds,elapsed){
   for(let i=0;i<STATE.patients.length;i++){
@@ -4205,7 +4247,7 @@ function zoneStaffHtml(stationIds,elapsed,systemLabel){
     }).join(''):'<div class="zone-staff-row zone-staff-work">ยังไม่มี Player ประจำ Zone</div>')+'</div>';
 }
 function zoneBoxHtml(zone,title,stationIds,elapsed,extraClass,systemLabel){
-  const patients=STATE.patients.filter(function(p){return dashboardPatientZone(p)===zone;}).sort(function(a,b){return (a.createdAt||0)-(b.createdAt||0);});
+  const patients=STATE.patients.filter(function(p){return dashboardPatientZone(p)===zone;}).sort(sortByZoneEntry(zone));
   return '<div class="zone-box '+(extraClass||'')+'"><div class="zone-box-head"><div class="zone-box-title">'+title+'</div><div class="zone-box-count">'+patients.length+' patients</div></div>'
     +'<div class="zone-people">'+(patients.length?patients.map(function(p){return pixelPatientHtml(p,zone,elapsed);}).join(''):'<div class="zone-empty">ยังไม่มีผู้ป่วย</div>')+'</div>'
     +zoneStaffHtml(stationIds,elapsed,systemLabel)+'</div>';
@@ -4227,7 +4269,7 @@ function vehicleGraphicSvg(type){
 }
 function vehiclePassengerHtml(p,elapsed){
   const color=dashboardPatientColor(p,elapsed);
-  return '<div class="vehicle-passenger vp-'+color+'" title="Patient No. '+esc(p.id)+'"><div class="pixel-human '+color+'"></div><span class="vp-no">No. '+esc(p.id)+'</span></div>';
+  return '<div class="vehicle-passenger vp-'+color+'" title="Patient No. '+esc(p.id)+'"><div class="pixel-human '+color+'"></div><span class="vp-no">No. '+esc(p.id)+'</span>'+zoneEntryClockHtml(p,'TRANSFER')+'</div>';
 }
 function dashboardVehicleTileHtml(v,passengers,elapsed,isParking){
   const type=dashboardVehicleType(v);
@@ -4246,7 +4288,7 @@ function dashboardVehicleTileHtml(v,passengers,elapsed,isParking){
     +'</div>';
 }
 function transferOperationsBoxHtml(elapsed){
-  const transferPatients=STATE.patients.filter(function(p){return p.stage==='TRANSFER';});
+  const transferPatients=STATE.patients.filter(function(p){return p.stage==='TRANSFER';}).sort(sortByZoneEntry('TRANSFER'));
   const vehicleNames=STATE.vehicles.map(function(v){return v.name;});
   const waiting=transferPatients.filter(function(p){return !p.vehicle||vehicleNames.indexOf(p.vehicle)<0;});
   const loaded=STATE.vehicles.map(function(v){
@@ -4269,7 +4311,7 @@ function parkingBoxHtml(elapsed){
     +'</div>';
 }
 function hospitalZoneBoxHtml(name,elapsed){
-  const patients=STATE.patients.filter(function(p){return dashboardPatientZone(p)==='HOSPITAL'&&(p.hospital||'ยังไม่ระบุปลายทาง')===name;}).sort(function(a,b){return (a.transferTime||a.createdAt||0)-(b.transferTime||b.createdAt||0);});
+  const patients=STATE.patients.filter(function(p){return dashboardPatientZone(p)==='HOSPITAL'&&(p.hospital||'ยังไม่ระบุปลายทาง')===name;}).sort(sortByZoneEntry('HOSPITAL'));
   const hospital=STATE.hospitals.find(function(h){return h.name===name;});
   const capacity=hospital?'<div class="hint" style="margin:7px 0 0;">Capacity · RED '+hospital.redUsed+'/'+hospital.redCap+' · YELLOW '+hospital.yellowUsed+'/'+hospital.yellowCap+' · GREEN '+hospital.greenUsed+'/'+hospital.greenCap+'</div>':'';
   return '<div class="zone-box compact"><div class="zone-box-head"><div class="zone-box-title">🏥 '+esc(name)+'</div><div class="zone-box-count">'+patients.length+' patients</div></div>'

@@ -561,6 +561,222 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .toggle-switch input:checked + .toggle-slider:before{transform:translateX(18px);}
 .toggle-switch input:disabled + .toggle-slider{opacity:.4;cursor:not-allowed;}
 .toggle-label{font-size:12.5px;color:var(--ink);}
+
+/* ============================================================
+   VISUAL RENOVATION — Emergency Command / Tactical EMS
+   Performance policy: vector-only artwork, transform/opacity motion,
+   and no full-screen filters or bitmap animation.
+============================================================ */
+:root{
+  --cyan:#4BE4D8;
+  --cyan-soft:rgba(75,228,216,.12);
+  --cyan-line:rgba(75,228,216,.28);
+  --amber:#FFB547;
+  --blue:#4DA3FF;
+  --panel-glass:rgba(16,23,32,.94);
+  --station-accent:var(--accent);
+  --station-glow:rgba(47,211,199,.09);
+}
+body{overflow-x:hidden;background-color:#080C12;}
+body::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    linear-gradient(rgba(105,137,166,.028) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(105,137,166,.028) 1px,transparent 1px);
+  background-size:32px 32px;
+  mask-image:linear-gradient(to bottom,black,transparent 82%);
+}
+.mission-shell{min-height:100vh;position:relative;isolation:isolate;--station-accent:var(--accent);--station-glow:rgba(47,211,199,.09);}
+.mission-shell::before{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(800px 420px at 52% -10%,var(--station-glow),transparent 68%);
+}
+.mission-shell.station-GM{--station-accent:#49DDD2;--station-glow:rgba(73,221,210,.10);}
+.mission-shell.station-COMMANDER{--station-accent:#A78BFA;--station-glow:rgba(167,139,250,.10);}
+.mission-shell.station-PRIMARY{--station-accent:#38BDF8;--station-glow:rgba(56,189,248,.10);}
+.mission-shell.station-SECONDARY{--station-accent:#818CF8;--station-glow:rgba(129,140,248,.10);}
+.mission-shell.station-TX_RED{--station-accent:#FF5A61;--station-glow:rgba(239,68,68,.12);}
+.mission-shell.station-TX_YELLOW{--station-accent:#F6C344;--station-glow:rgba(234,179,8,.11);}
+.mission-shell.station-TX_GREEN{--station-accent:#4ADE80;--station-glow:rgba(34,197,94,.10);}
+.mission-shell.station-TRANSFER,.mission-shell.station-DISPATCH{--station-accent:#60A5FA;--station-glow:rgba(59,130,246,.11);}
+.mission-shell.station-DISCHARGE{--station-accent:#94A3B8;--station-glow:rgba(148,163,184,.08);}
+
+/* Command header */
+.topbar{
+  min-height:66px;padding:9px 20px;border-bottom-color:rgba(126,151,177,.2);
+  background:linear-gradient(180deg,rgba(16,23,32,.98),rgba(11,16,23,.94));
+  box-shadow:0 8px 30px rgba(0,0,0,.22);
+}
+.brand{gap:11px;min-width:max-content;}
+.brand .dot{display:none;}
+.brand-mark{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--cyan-line);border-radius:9px;background:var(--cyan-soft);color:var(--station-accent);box-shadow:inset 0 0 16px rgba(255,255,255,.03);}
+.brand-mark svg{width:21px;height:21px;display:block;}
+.brand-copy{display:flex;flex-direction:column;line-height:1.05;}
+.brand-copy strong{font-size:14px;letter-spacing:.08em;}
+.brand-copy small{font:500 8px/1.2 var(--font-mono);letter-spacing:.13em;color:var(--ink-faint);margin-top:4px;}
+.clockwrap{margin-left:auto;justify-content:center;}
+.timerbig{font-size:25px;color:#F5FBFF;text-shadow:0 0 18px var(--station-glow);font-variant-numeric:tabular-nums;}
+.pill{background:rgba(22,31,42,.78);}
+.mebadge{margin-left:auto;}
+.sweepbar{height:1px;background:linear-gradient(90deg,transparent,var(--station-accent),transparent);opacity:.65;}
+.main{max-width:1440px;padding-top:24px;}
+
+/* Unified surfaces and hierarchy */
+.card,.player-census,.transfer-step,.zone-box,.patient-card{
+  border-color:rgba(111,137,163,.22);
+  box-shadow:0 12px 30px rgba(0,0,0,.12),inset 0 1px rgba(255,255,255,.018);
+}
+.card{background:linear-gradient(145deg,rgba(19,27,37,.97),rgba(15,22,30,.96));}
+.station-hero{position:relative;padding:2px 0 11px;border-bottom:1px solid rgba(116,143,169,.15);}
+.station-hero::after{content:"";position:absolute;left:0;bottom:-1px;width:92px;height:2px;background:var(--station-accent);box-shadow:0 0 16px var(--station-glow);}
+.station-hero h1{display:flex;align-items:center;gap:10px;font-size:27px;letter-spacing:-.02em;}
+.station-title-icon{width:38px;height:38px;display:inline-grid;place-items:center;border-radius:10px;border:1px solid color-mix(in srgb,var(--station-accent) 40%,var(--line));background:color-mix(in srgb,var(--station-accent) 10%,var(--bg-panel));color:var(--station-accent);}
+.station-title-icon svg{width:22px;height:22px;display:block;}
+.station-hero .eyebrow{color:var(--station-accent)!important;}
+.btn{min-height:38px;border-color:rgba(120,147,174,.26);background:linear-gradient(180deg,#1B2633,#151E29);box-shadow:inset 0 1px rgba(255,255,255,.025);}
+.btn:hover{border-color:color-mix(in srgb,var(--station-accent) 55%,var(--line));background:#202D3B;transform:translateY(-1px);}
+.btn.primary{background:linear-gradient(180deg,#50E3D8,#2FC6BC);box-shadow:0 7px 18px rgba(47,211,199,.12),inset 0 1px rgba(255,255,255,.25);}
+.btn.primary:hover{background:linear-gradient(180deg,#65EFE5,#39D2C7);}
+.tab{position:relative;background:rgba(18,26,35,.88);}
+.tab.active{box-shadow:0 7px 18px rgba(47,211,199,.11);}
+input[type=text],input[type=password],input[type=number],select,textarea{background:#0C1219;border-color:rgba(117,145,172,.28);}
+
+/* Mission entry */
+.joinwrap{position:relative;background:
+  radial-gradient(ellipse 850px 520px at 12% 0%,rgba(47,211,199,.10),transparent 62%),
+  radial-gradient(ellipse 620px 500px at 100% 100%,rgba(229,72,77,.08),transparent 66%);}
+.joinwrap::before{content:"";position:absolute;inset:0;pointer-events:none;background:
+  linear-gradient(rgba(83,126,154,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(83,126,154,.05) 1px,transparent 1px);background-size:40px 40px;mask-image:radial-gradient(circle at 50% 50%,black,transparent 78%);}
+.joincard.command-entry{width:min(980px,100%);max-width:none;padding:0;display:grid;grid-template-columns:minmax(300px,.92fr) minmax(350px,1.08fr);overflow:hidden;border-radius:18px;background:rgba(13,19,27,.97);box-shadow:0 34px 90px rgba(0,0,0,.46);}
+.joincard.command-entry::before{display:none;}
+.join-brief{position:relative;min-height:560px;padding:42px 38px;display:flex;flex-direction:column;overflow:hidden;background:
+  radial-gradient(circle at 20% 5%,rgba(47,211,199,.17),transparent 44%),
+  linear-gradient(145deg,#121E29,#0A1017 75%);border-right:1px solid rgba(109,139,166,.22);}
+.join-brief::before{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 0 100%,transparent 0 62px,rgba(75,228,216,.045) 63px 64px);pointer-events:none;}
+.join-brief::after{content:"";position:absolute;width:240px;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);left:-35px;bottom:126px;transform:rotate(-27deg);opacity:.55;}
+.command-logo{position:relative;z-index:1;width:68px;height:68px;display:grid;place-items:center;color:var(--cyan);border:1px solid var(--cyan-line);border-radius:17px;background:rgba(47,211,199,.08);box-shadow:0 0 36px rgba(47,211,199,.09),inset 0 0 26px rgba(47,211,199,.05);}
+.command-logo svg{width:40px;height:40px;}
+.join-kicker{position:relative;z-index:1;margin-top:42px;font:600 10px/1 var(--font-mono);letter-spacing:.18em;color:var(--cyan);}
+.join-brief h1{position:relative;z-index:1;font-size:38px;line-height:1.02;letter-spacing:-.04em;margin:10px 0 13px;}
+.join-brief p{position:relative;z-index:1;max-width:340px;font-size:13px;}
+.mission-data{position:relative;z-index:1;margin-top:auto;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+.mission-data div{padding:10px 11px;border:1px solid rgba(111,142,169,.18);border-radius:8px;background:rgba(5,10,15,.34);}
+.mission-data span{display:block;font:500 8px/1 var(--font-mono);letter-spacing:.11em;color:var(--ink-faint);}
+.mission-data b{display:block;margin-top:6px;font:600 11px/1.25 var(--font-mono);color:var(--ink);}
+.online-signal{display:inline-flex!important;align-items:center;gap:6px;color:#71E7A0!important;}
+.online-signal::before{content:"";width:6px;height:6px;border-radius:50%;background:#4ADE80;box-shadow:0 0 0 3px rgba(74,222,128,.12);}
+.join-form{padding:46px 42px;display:flex;flex-direction:column;justify-content:center;position:relative;}
+.join-form .jc-title{font-size:25px;}
+.join-form .jc-sub{margin-bottom:28px;}
+.role-select{margin-top:10px;padding:12px;border:1px solid rgba(116,143,169,.18);border-radius:9px;background:rgba(8,13,19,.45);}
+.join-submit{min-height:48px;font-size:14px;letter-spacing:.02em;}
+
+/* Patient vector system */
+.pixel-human{width:43px;height:48px;border-width:1px;border-color:color-mix(in srgb,var(--pc) 58%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--pc) 15%,#17202B),#101720);box-shadow:0 6px 12px rgba(0,0,0,.22),inset 0 0 18px color-mix(in srgb,var(--pc) 8%,transparent);}
+.pixel-human::before{content:none!important;}
+.pixel-human::after{height:4px;opacity:.9;}
+.pixel-human svg{width:38px;height:42px;display:block;overflow:visible;}
+.pixel-human .patient-skin{fill:#D7B89E;}
+.pixel-human .patient-shirt{fill:#DFE8EF;}
+.pixel-human .patient-pants{fill:#667789;}
+.pixel-human .patient-bed{fill:#9CADBD;}
+.pixel-human .patient-wheel{fill:#263340;}
+.pixel-human.BLACK svg{filter:grayscale(1) brightness(.68);}
+.pixel-patient,.anonymous-person{animation:patientArrive .28s cubic-bezier(.2,.8,.2,1) both;}
+@keyframes patientArrive{from{opacity:0;transform:translateY(7px) scale(.97)}to{opacity:1;transform:none}}
+.patient-focus-avatar{width:72px;height:72px;display:grid;place-items:center;flex:0 0 auto;border:1px solid color-mix(in srgb,var(--pc) 58%,var(--line));border-radius:14px;background:linear-gradient(145deg,color-mix(in srgb,var(--pc) 15%,var(--bg-panel-2)),var(--bg));box-shadow:inset 0 -4px var(--pc),0 10px 22px rgba(0,0,0,.23);}
+.patient-focus-avatar svg{width:57px;height:57px;}
+.patient-focus-avatar.gray{--pc:#7C8494}.patient-focus-avatar.RED{--pc:#EF4444}.patient-focus-avatar.YELLOW{--pc:#EAB308}.patient-focus-avatar.GREEN{--pc:#22C55E}.patient-focus-avatar.BLACK{--pc:#6B7280}
+.patient-focus-avatar .patient-skin{fill:#D7B89E}.patient-focus-avatar .patient-shirt{fill:#DFE8EF}.patient-focus-avatar .patient-pants{fill:#667789}.patient-focus-avatar .patient-bed{fill:#9CADBD}.patient-focus-avatar .patient-wheel{fill:#263340}
+.patient-card{position:relative;overflow:hidden;padding:16px 18px;background:linear-gradient(135deg,color-mix(in srgb,var(--pc, var(--station-accent)) 7%,#17202B),#111820 62%);border-left:1px solid color-mix(in srgb,var(--pc, var(--station-accent)) 60%,var(--line));}
+.patient-card::before{content:"ACTIVE PATIENT";position:absolute;right:15px;top:11px;font:600 8px/1 var(--font-mono);letter-spacing:.14em;color:color-mix(in srgb,var(--pc,var(--station-accent)) 66%,var(--ink-faint));}
+.patient-card.stripe-RED{--pc:var(--red);}.patient-card.stripe-YELLOW{--pc:var(--yellow);}.patient-card.stripe-GREEN{--pc:var(--green);}.patient-card.stripe-BLACK{--pc:var(--black-tri);}
+.patient-card .pidrow{padding-right:90px;min-height:72px;}
+.patient-card .pid{font-size:22px;}
+.player-census{position:relative;overflow:hidden;background:linear-gradient(135deg,color-mix(in srgb,var(--station-accent) 5%,var(--bg-panel-2)),var(--bg-panel-2));}
+.player-census::after{content:"";position:absolute;right:-70px;top:-110px;width:210px;height:210px;border:1px solid color-mix(in srgb,var(--station-accent) 10%,transparent);border-radius:50%;pointer-events:none;}
+
+/* Zone command board */
+.zone-flow-board{position:relative;}
+.zone-flow-column{position:relative;}
+.zone-box{background:linear-gradient(155deg,rgba(27,36,48,.96),rgba(18,25,34,.97));}
+.zone-box.red,.zone-box.yellow,.zone-box.green{border-top-width:2px;}
+.zone-box-head{position:relative;}
+.zone-box-title{color:var(--ink);}
+.zone-box-count{padding:3px 7px;border-radius:999px;background:rgba(6,11,16,.38);}
+.zone-empty{min-height:72px;display:grid;place-items:center;border:1px dashed rgba(108,137,164,.14);border-radius:8px;margin-top:10px;text-transform:uppercase;letter-spacing:.07em;}
+
+/* Ambulance staging and parking bay */
+.transfer-step{position:relative;overflow:hidden;background:linear-gradient(145deg,#182330,#121A23);}
+.transfer-step:first-child::after{content:"AMBULANCE STAGING";position:absolute;right:13px;bottom:9px;font:700 8px/1 var(--font-mono);letter-spacing:.15em;color:rgba(128,162,192,.20);pointer-events:none;}
+.transfer-vehicle-grid{position:relative;padding:16px 12px 10px;border-radius:9px;background:
+  linear-gradient(90deg,transparent 49.5%,rgba(226,232,240,.10) 49.5% 50.5%,transparent 50.5%),
+  repeating-linear-gradient(90deg,rgba(148,163,184,.09) 0 1px,transparent 1px 170px),
+  linear-gradient(180deg,#121A22,#0F161D);border:1px solid rgba(122,151,178,.15);}
+.transfer-vehicle-choice{z-index:1;}
+.transfer-staging{position:relative;overflow:hidden;background:
+  linear-gradient(135deg,rgba(47,211,199,.055),transparent 46%),
+  repeating-linear-gradient(90deg,transparent 0 118px,rgba(127,151,174,.055) 119px 120px),var(--bg-panel-2);}
+.transfer-staging::after{content:"DISPATCH LANE  →";position:absolute;right:22px;bottom:10px;font:800 9px/1 var(--font-mono);letter-spacing:.18em;color:rgba(132,170,202,.18);pointer-events:none;}
+.vehicle-art{transition:transform .22s ease;}
+.transfer-vehicle-choice:hover .vehicle-art{transform:translateY(-2px);}
+.vehicle-siren-left,.vehicle-siren-right{opacity:.48;}
+.transfer-staging-vehicle .vehicle-siren-left,.vehicle-tile:has(.vehicle-passengers) .vehicle-siren-left{animation:sirenRed 1.05s steps(1,end) infinite;}
+.transfer-staging-vehicle .vehicle-siren-right,.vehicle-tile:has(.vehicle-passengers) .vehicle-siren-right{animation:sirenBlue 1.05s steps(1,end) infinite;}
+@keyframes sirenRed{0%,49%{opacity:1;filter:drop-shadow(0 0 4px #ff474d)}50%,100%{opacity:.24;filter:none}}
+@keyframes sirenBlue{0%,49%{opacity:.24;filter:none}50%,100%{opacity:1;filter:drop-shadow(0 0 4px #54a7ff)}}
+.transfer-sendbar{background:rgba(14,21,29,.96);border-color:rgba(75,228,216,.25);}
+
+/* Treatment progress and mission completion */
+.tx-countdown{padding:4px 7px;border-radius:6px;background:rgba(243,167,18,.08);border:1px solid rgba(243,167,18,.2);}
+.mission-complete{position:relative;overflow:hidden;margin-bottom:18px;padding:21px 22px;border:1px solid rgba(75,228,216,.28);border-radius:12px;background:linear-gradient(110deg,rgba(47,211,199,.13),rgba(17,25,34,.97) 58%);box-shadow:0 14px 35px rgba(0,0,0,.18);}
+.mission-complete::after{content:"MISSION COMPLETE";position:absolute;right:-12px;bottom:-6px;font:800 30px/1 var(--font-display);letter-spacing:.02em;color:rgba(75,228,216,.055);}
+.mission-complete .mc-kicker{font:700 9px/1 var(--font-mono);letter-spacing:.17em;color:var(--cyan);}
+.mission-complete .mc-title{font:700 23px/1.2 var(--font-display);margin-top:7px;}
+.mission-complete .mc-meta{font-size:12px;color:var(--ink-dim);margin-top:6px;}
+.mission-end-screen{min-height:calc(100vh - 120px);display:grid;place-items:center;padding:30px 14px;}
+.mission-end-panel{width:min(680px,100%);text-align:center;padding:38px;border:1px solid rgba(75,228,216,.3);border-radius:18px;background:radial-gradient(circle at 50% 0,rgba(75,228,216,.13),transparent 48%),#101720;box-shadow:0 28px 70px rgba(0,0,0,.34);}
+.mission-end-symbol{width:82px;height:82px;margin:0 auto 20px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--cyan-line);background:var(--cyan-soft);color:var(--cyan);}
+.mission-end-symbol svg{width:42px;height:42px}.mission-end-panel h1{font-size:30px;margin-bottom:8px}.mission-end-panel p{max-width:500px;margin:0 auto}.mission-end-wait{margin-top:22px;padding:12px;border:1px solid var(--line);border-radius:9px;background:rgba(7,12,18,.45);font:600 11px/1.5 var(--font-mono);color:var(--ink-dim);}
+.personal-debrief-head{margin-bottom:18px;padding:22px;border:1px solid rgba(167,139,250,.3);border-radius:13px;background:linear-gradient(120deg,rgba(167,139,250,.13),rgba(17,25,34,.97));}
+.personal-score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}.personal-score{padding:11px;border:1px solid var(--line-soft);border-radius:8px;background:rgba(7,12,18,.32)}.personal-score b{display:block;font:700 22px/1 var(--font-mono);margin-bottom:5px}.personal-score span{font-size:10px;color:var(--ink-faint)}
+
+/* Treatment workspace */
+.treatment-workspace{display:grid;grid-template-columns:minmax(260px,.72fr) minmax(420px,1.28fr);gap:14px;align-items:start;}
+.treatment-overview{position:sticky;top:88px;}.treatment-case-id{font:700 30px/1 var(--font-mono);margin:10px 0}.treatment-case-status{display:flex;gap:7px;flex-wrap:wrap}.treatment-section{padding:14px 0;border-top:1px solid var(--line-soft)}.treatment-section:first-child{border-top:0;padding-top:0}.treatment-section-title{font:700 10px/1 var(--font-mono);letter-spacing:.1em;color:var(--station-accent);margin-bottom:10px}.treatment-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.treatment-actions .btn{min-height:46px}.resource-rack{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:7px}.resource-chip{display:flex;justify-content:space-between;gap:7px;padding:8px 9px;border:1px solid var(--line-soft);border-radius:7px;background:#0D141C;font-size:10px}.resource-chip b{font-family:var(--font-mono);color:var(--station-accent)}
+
+/* Real ambulance bay */
+.ambulance-bay{position:relative;padding:26px 18px 38px!important;background:linear-gradient(180deg,#303940 0 72%,#262E34 72%)!important;border:1px solid #46535D!important;overflow:hidden;}
+.ambulance-bay::before{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(90deg,transparent 0 18px,rgba(255,255,255,.035) 19px 20px),linear-gradient(180deg,transparent 71%,rgba(255,255,255,.09) 71% 72%,transparent 72%);}
+.ambulance-bay::after{content:"KEEP CLEAR  •  AMBULANCE ONLY";position:absolute;left:18px;right:18px;bottom:12px;text-align:center;font:800 9px/1 var(--font-mono);letter-spacing:.18em;color:rgba(245,192,69,.6);}
+.ambulance-bay .transfer-vehicle-choice{position:relative;padding:10px 8px 14px;border-left:2px solid rgba(245,192,69,.48);border-right:2px solid rgba(245,192,69,.48);border-radius:0;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(0,0,0,.08));}
+.ambulance-bay .transfer-vehicle-choice::after{content:"BAY " attr(data-bay);position:absolute;left:7px;bottom:3px;font:700 8px/1 var(--font-mono);letter-spacing:.1em;color:rgba(255,255,255,.38)}
+.dispatching-vehicle{animation:ambulanceExit .72s cubic-bezier(.45,.05,.7,.55) forwards!important;pointer-events:none;z-index:12}.dispatching-vehicle .vehicle-art{filter:drop-shadow(-12px 5px 6px rgba(0,0,0,.28))}.dispatching-vehicle .vehicle-wheel{transform-box:fill-box;transform-origin:center;animation:wheelSpin .22s linear infinite}
+@keyframes ambulanceExit{0%{transform:translateX(0);opacity:1}72%{opacity:1}100%{transform:translateX(calc(100vw + 260px));opacity:0}}
+@keyframes wheelSpin{to{transform:rotate(360deg)}}
+@media(max-width:800px){.treatment-workspace{grid-template-columns:1fr}.treatment-overview{position:static}.personal-score-grid{grid-template-columns:1fr}.treatment-actions{grid-template-columns:1fr}}
+
+/* Lightweight entrance motion */
+.card,.transfer-step,.zone-box,.patient-card{animation:surfaceIn .24s ease-out both;}
+@keyframes surfaceIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+@media (max-width:900px){
+  .joincard.command-entry{grid-template-columns:1fr;max-width:560px;}
+  .join-brief{min-height:300px;padding:30px 28px;}
+  .join-kicker{margin-top:24px;}.join-brief h1{font-size:31px;}.mission-data{margin-top:28px;}
+  .join-form{padding:34px 28px;}
+  .topbar{flex-wrap:wrap;gap:8px;}.clockwrap{order:3;width:100%;justify-content:space-between;border-top:1px solid var(--line-soft);padding-top:7px;}.mebadge{margin-left:auto;}
+}
+@media (max-width:620px){
+  .main{padding:16px 11px 48px;}.topbar{padding:8px 11px;}.brand-copy small{display:none;}.mebadge>span:first-child{display:none;}
+  .station-hero h1{font-size:22px;}.station-title-icon{width:34px;height:34px;}.timerbig{font-size:21px;}
+  .patient-card .pidrow{padding-right:0;padding-top:16px;}.patient-card::before{left:16px;right:auto;}
+  .joinwrap{padding:10px;}.join-brief{padding:26px 22px;}.join-form{padding:28px 22px;}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.001ms!important;}
+}
 </style>
 </head>
 <body>
@@ -1563,7 +1779,7 @@ const DEFAULT_VEHICLES = [
   {name:'ALS_1',type:'ALS'},{name:'ALS_2',type:'ALS'}
 ].map(function(v){ return Object.assign({busyUntilElapsed:0, busyHospital:null}, v); });
 
-const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, startedBy:null, endedElapsed:null, endedBy:null, maxGameMin:60, fastTreatment:false, allowHospitalTreatment:false, capacity:{RED:2,YELLOW:2,GREEN:2}, transitSpeeds:{walkKmh:4, carryKmh:3}, mapSettings:{useMap:true, distSecondary:true, distTreatment:true, distTransfer:true}};
+const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, startedBy:null, endedElapsed:null, endedBy:null, debriefActive:false, debriefStartedAt:null, debriefStartedBy:null, maxGameMin:60, fastTreatment:false, allowHospitalTreatment:false, capacity:{RED:2,YELLOW:2,GREEN:2}, transitSpeeds:{walkKmh:4, carryKmh:3}, mapSettings:{useMap:true, distSecondary:true, distTreatment:true, distTransfer:true}};
 
 /* Scene Setup (pre-triage map phase) — published:false + skipped:false blocks
    game start until GM either publishes a scene or explicitly skips it. */
@@ -2547,7 +2763,7 @@ async function runDerivedStateMaintenance(){
   try{
     const elapsed=elapsedMinutes(STATE.gc);
     if(STATE.gc.status==='RUNNING'&&STATE.gc.maxGameMin>0&&elapsed>=STATE.gc.maxGameMin){
-      await kvSet(KEYS.gc,Object.assign({},STATE.gc,{status:'ENDED',endedElapsed:STATE.gc.maxGameMin}));
+      await kvSet(KEYS.gc,Object.assign({},STATE.gc,{status:'ENDED',endedElapsed:STATE.gc.maxGameMin,endedBy:'SYSTEM',debriefActive:false,debriefStartedAt:null,debriefStartedBy:null}));
     }
     const hasTimedPatient=STATE.patients.some(function(p){return p.stage==='TRANSIT'||p.stage==='HOSPITAL'||p.dischargePendingOutcome;});
     if(!hasTimedPatient)return;
@@ -2774,15 +2990,21 @@ function sceneReady(){
 }
 async function gmStartGame(){
   if(!sceneReady()){ toast('กรุณาเผยแพร่หรือข้ามขั้นตอน Scene Setup ก่อนเริ่มเกม','err'); return; }
-  const gc = Object.assign({}, STATE.gc, {status:'RUNNING', startTime:Date.now(), startedBy:STATE.me.name||'GM', endedElapsed:null, endedBy:null});
+  const gc = Object.assign({}, STATE.gc, {status:'RUNNING', startTime:Date.now(), startedBy:STATE.me.name||'GM', endedElapsed:null, endedBy:null, debriefActive:false, debriefStartedAt:null, debriefStartedBy:null});
   await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
   toast('เริ่มเกมแล้ว — แจกหน้าที่และเริ่มรับผู้ป่วยได้เลย','ok');
 }
 async function gmEndGame(){
   const elapsed = elapsedMinutes(STATE.gc);
-  const gc = Object.assign({}, STATE.gc, {status:'ENDED', endedElapsed:elapsed, endedBy:STATE.me.name||'GM'});
+  const gc = Object.assign({}, STATE.gc, {status:'ENDED', endedElapsed:elapsed, endedBy:STATE.me.name||'GM', debriefActive:false, debriefStartedAt:null, debriefStartedBy:null});
   await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
   toast('จบเกมแล้ว','ok');
+}
+async function gmStartDebrief(){
+  if(STATE.gc.status!=='ENDED'){toast('ต้องจบภารกิจก่อนเริ่ม Debrief','err');return;}
+  const gc=Object.assign({},STATE.gc,{debriefActive:true,debriefStartedAt:Date.now(),debriefStartedBy:STATE.me.name||'GM'});
+  await kvSet(KEYS.gc,gc);STATE.gc=gc;render(true);
+  toast('เริ่ม Debrief แล้ว — ผู้เล่นทุกคนถูกย้ายไป Timeline ส่วนตัว','ok');
 }
 async function gmResetGame(){
   const gc = Object.assign({}, DEFAULT_GC, {capacity:Object.assign({},STATE.gc.capacity), maxGameMin:STATE.gc.maxGameMin, fastTreatment:!!STATE.gc.fastTreatment, allowHospitalTreatment:hospitalTreatmentEnabled(STATE.gc), transitSpeeds:Object.assign({},STATE.gc.transitSpeeds), mapSettings:Object.assign({},DEFAULT_GC.mapSettings,STATE.gc.mapSettings)});
@@ -3274,7 +3496,7 @@ async function txSetDx(id, value){
 /* ============================================================
    13) DISPATCH ACTION
 ============================================================ */
-async function dispatchSend(vehicleName,selectedIds,selectedHospital){
+async function dispatchSend(vehicleName,selectedIds,selectedHospital,suppressRender){
   vehicleName=norm(vehicleName);
   const explicitSelection=Array.isArray(selectedIds);
   const wantedIds=explicitSelection?uniq(selectedIds.map(normU).filter(Boolean)):[];
@@ -3434,7 +3656,7 @@ async function dispatchSend(vehicleName,selectedIds,selectedHospital){
   }else{
     toast('ส่งรถ '+vehicleName+' → '+summary.hospital+' | กติกาเดิม: Accepted '+summary.acceptedCount+' | Dead '+summary.deadCount,summary.acceptedCount>0?'ok':'err');
   }
-  render();
+  if(!suppressRender)render();
   return true;
 }
 
@@ -3654,23 +3876,41 @@ function viewToasts(){
 function viewJoin(){
   return ''
   + '<div class="joinwrap">'
-  +   '<div class="joincard">'
-  +     '<div class="jc-title">🚨 MCI Command</div>'
-  +     '<div class="jc-sub">ระบบจำลองสถานการณ์ Mass Casualty Incident — พิมพ์ชื่อเพื่อเข้าร่วมภารกิจ</div>'
-  +     '<label class="label">ชื่อของคุณ</label>'
-  +     '<input type="text" id="joinName" data-preserve placeholder="เช่น หมอเอ, พยาบาลบี" data-enter-act="join" style="margin-bottom:12px;">'
-  +     '<label class="label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
-  +       '<input type="checkbox" id="joinAsGM" data-act="toggleGMPassword" style="width:auto;"> ฉันเป็นผู้ควบคุมเกม (GM)'
-  +     '</label>'
-  +     '<div id="gmPasswordWrap" style="display:none;margin-top:8px;">'
-  +       '<label class="label" for="joinGMPassword">รหัส GM</label>'
-  +       '<input type="password" id="joinGMPassword" data-preserve data-enter-act="join" autocomplete="current-password" placeholder="กรอกรหัสสำหรับ GM">'
-  +     '</div>'
-  +     '<label class="label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:8px;">'
-  +       '<input type="checkbox" id="joinAsCommander" data-act="toggleCommanderRole" style="width:auto;"> แต่งตั้งตัวเองเป็น Commander'
-  +     '</label>'
-  +     '<button class="btn primary block" data-act="join" style="margin-top:14px;">เข้าร่วมภารกิจ</button>'
-  +     '<div class="hint" style="margin-top:14px;">ทุกคนที่เข้าร่วมจะรอ GM มอบหมายหน้าที่ประจำสถานี</div>'
+  +   '<div class="joincard command-entry">'
+  +     '<section class="join-brief">'
+  +       '<div class="command-logo">'+commandLogoSvg()+'</div>'
+  +       '<div class="join-kicker">EMERGENCY OPERATIONS</div>'
+  +       '<h1>MCI<br>COMMAND</h1>'
+  +       '<p>Mass Casualty Incident Simulation<br>ระบบฝึกบัญชาการ คัดแยก รักษา และส่งต่อผู้ป่วยในสถานการณ์หมู่</p>'
+  +       '<div class="mission-data">'
+  +         '<div><span>SYSTEM</span><b class="online-signal">ONLINE</b></div>'
+  +         '<div><span>MISSION TYPE</span><b>MASS CASUALTY</b></div>'
+  +         '<div><span>NETWORK</span><b>REALTIME SYNC</b></div>'
+  +         '<div><span>MODE</span><b>TEAM EXERCISE</b></div>'
+  +       '</div>'
+  +     '</section>'
+  +     '<section class="join-form">'
+  +       '<div class="jc-title">เข้าสู่พื้นที่ปฏิบัติการ</div>'
+  +       '<div class="jc-sub">ระบุชื่อที่ใช้ระหว่างการฝึก แล้วรอรับมอบหมายหน้าที่จาก GM</div>'
+  +       '<label class="label">ชื่อผู้เข้าร่วม</label>'
+  +       '<input type="text" id="joinName" data-preserve placeholder="เช่น หมอเอ, พยาบาลบี" data-enter-act="join" style="margin-bottom:14px;">'
+  +       '<div class="role-select">'
+  +         '<label class="label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">'
+  +           '<input type="checkbox" id="joinAsGM" data-act="toggleGMPassword" style="width:auto;"> เข้าสู่ระบบในฐานะผู้ควบคุมเกม (GM)'
+  +         '</label>'
+  +         '<div id="gmPasswordWrap" style="display:none;margin-top:10px;">'
+  +           '<label class="label" for="joinGMPassword">รหัส GM</label>'
+  +           '<input type="password" id="joinGMPassword" data-preserve data-enter-act="join" autocomplete="current-password" placeholder="กรอกรหัสสำหรับ GM">'
+  +         '</div>'
+  +       '</div>'
+  +       '<div class="role-select">'
+  +         '<label class="label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">'
+  +           '<input type="checkbox" id="joinAsCommander" data-act="toggleCommanderRole" style="width:auto;"> เข้าสู่ระบบในฐานะ Commander'
+  +         '</label>'
+  +       '</div>'
+  +       '<button class="btn primary block join-submit" data-act="join" style="margin-top:18px;">ENTER INCIDENT&nbsp; →</button>'
+  +       '<div class="hint" style="margin-top:14px;text-align:center;">ข้อมูลจะเชื่อมต่อกับทีมแบบ Realtime ตลอดการฝึก</div>'
+  +     '</section>'
   +   '</div>'
   + '</div>'
   + viewToasts();
@@ -3701,9 +3941,11 @@ function viewWaiting(){
 }
 
 function viewShell(bodyHtml){
+  const stationClass='station-'+String(STATE.me.station||'UNKNOWN').replace(/[^A-Z0-9_-]/gi,'');
   return ''
+  + '<div class="mission-shell '+stationClass+'">'
   + '<div class="topbar">'
-  +   '<div class="brand"><span class="dot"></span> MCI COMMAND</div>'
+  +   '<div class="brand"><span class="brand-mark">'+commandLogoSvg()+'</span><span class="brand-copy"><strong>MCI COMMAND</strong><small>EMERGENCY OPERATIONS SYSTEM</small></span></div>'
   +   renderClockPill()
   +   '<div class="mebadge">'
   +     '<span>👤 <b>'+esc(STATE.me.name)+'</b></span>'
@@ -3713,6 +3955,7 @@ function viewShell(bodyHtml){
   + '</div>'
   + '<div class="sweepbar"></div>'
   + '<div class="main">' + bodyHtml + '</div>'
+  + '</div>'
   + viewToasts();
 }
 
@@ -3773,12 +4016,14 @@ function sortByZoneEntry(zone){
 }
 
 function viewSceneWaiting(){
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">รอ GM</div><h1>🗺️ กำลังเตรียมที่เกิดเหตุ</h1></div></div>'
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">รอ GM</div><h1>'+stationHeading('map','กำลังเตรียมที่เกิดเหตุ')+'</h1></div></div>'
     + '<div class="empty"><div class="big">⏳</div>GM กำลังจัดวางผังที่เกิดเหตุ (Scene Setup) — เมื่อ GM กด "เผยแพร่" หรือ "ข้ามขั้นตอน" หน้าสถานีของคุณจะเปิดใช้งานให้เอง ไม่ต้องรีเฟรชหน้า</div>';
 }
 function viewStationBody(){
   const st = STATE.me.station;
   if(st==='GM') return viewGM();
+  if(STATE.gc.status==='ENDED'&&STATE.gc.debriefActive) return viewPersonalDebrief();
+  if(STATE.gc.status==='ENDED') return viewMissionEnded();
   if(st!=='GM' && !sceneReady()) return viewSceneWaiting();
   if(st==='COMMANDER') return viewCommander();
   if(st==='PRIMARY') return viewPrimary();
@@ -3790,10 +4035,47 @@ function viewStationBody(){
   if(st==='DISCHARGE') return viewDischargeLog();
   return '<div class="empty"><div class="big">🤷</div>ไม่รู้จักสถานีนี้</div>';
 }
+function viewMissionEnded(){
+  return '<div class="mission-end-screen"><div class="mission-end-panel"><div class="mission-end-symbol">'+uiIconSvg('command')+'</div><div class="eyebrow">INCIDENT TERMINATED</div><h1>จบภารกิจ</h1><p>GM ได้ยุติสถานการณ์แล้ว ระบบหยุดเวลาภารกิจและเก็บ Timeline เรียบร้อย</p><div class="mission-end-wait"><span class="pulse-dot"></span> รอ GM เริ่ม Debrief — หน้านี้จะเปลี่ยนอัตโนมัติ</div></div></div>';
+}
 
 /* ============================================================
    16) SHARED UI HELPERS
 ============================================================ */
+function uiIconSvg(kind){
+  const head='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">';
+  const paths={
+    command:'<path d="M12 3v5M12 16v5M3 12h5M16 12h5"/><circle cx="12" cy="12" r="4"/><path d="M6.2 6.2l2.2 2.2M15.6 15.6l2.2 2.2M17.8 6.2l-2.2 2.2M8.4 15.6l-2.2 2.2"/>',
+    commander:'<path d="M12 3l7 4v5c0 4.5-2.8 7.3-7 9-4.2-1.7-7-4.5-7-9V7l7-4z"/><path d="M9 12l2 2 4-5"/>',
+    primary:'<path d="M8 4v5a4 4 0 0 0 8 0V4"/><path d="M8 4H6M16 4h2M12 13v2a4 4 0 0 0 8 0v-2"/><circle cx="20" cy="11" r="2"/>',
+    secondary:'<circle cx="10.5" cy="10.5" r="5.5"/><path d="M15 15l5 5M8 10.5h5M10.5 8v5"/>',
+    treatment:'<path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6V3z"/>',
+    transfer:'<path d="M3 7h11v9H3zM14 10h3l3 3v3h-6z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M6 11h5M8.5 8.5v5"/>',
+    discharge:'<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 12h6M9 16h6M9 8h2"/>',
+    hospital:'<path d="M4 21V5h16v16M8 21v-4h8v4M9 9h6M12 6v6"/>',
+    map:'<path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/>'
+  };
+  return head+(paths[kind]||paths.command)+'</svg>';
+}
+function stationHeading(icon,title){
+  return '<span class="station-title-icon">'+uiIconSvg(icon)+'</span><span>'+title+'</span>';
+}
+function commandLogoSvg(){
+  return '<svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M24 5v10M24 33v10M5 24h10M33 24h10"/><circle cx="24" cy="24" r="9"/><path d="M13 13l5 5M30 30l5 5M35 13l-5 5M18 30l-5 5"/><path d="M24 19v10M19 24h10"/></svg>';
+}
+function patientVectorSvg(p){
+  const mobile=effectiveCanWalk(p)==='yes';
+  if(!mobile){
+    return '<svg viewBox="0 0 54 54" aria-hidden="true"><circle class="patient-skin" cx="16" cy="24" r="5"/><path class="patient-shirt" d="M21 20h18c4 0 6 3 6 7v4H22c-4 0-7-2-7-5s2-6 6-6z"/><path class="patient-pants" d="M35 27h12v5H34z"/><rect class="patient-bed" x="7" y="34" width="41" height="4" rx="2"/><path class="patient-bed" d="M10 38v7M45 38v7"/><circle class="patient-wheel" cx="10" cy="46" r="3"/><circle class="patient-wheel" cx="45" cy="46" r="3"/><path d="M7 33V21" stroke="#9CADBD" stroke-width="2" stroke-linecap="round"/></svg>';
+  }
+  return '<svg viewBox="0 0 54 54" aria-hidden="true"><circle class="patient-skin" cx="27" cy="12" r="7"/><path class="patient-shirt" d="M17 23c2-5 6-7 10-7s8 2 10 7l2 14h-8v-9h-8v9h-8z"/><path class="patient-skin" d="M16 23h4l-2 14h-4zM34 23h4l2 14h-4z"/><path class="patient-pants" d="M22 35h10l3 15h-6l-2-10-2 10h-6z"/><path d="M19 50h7M28 50h7" stroke="#9CADBD" stroke-width="2.5" stroke-linecap="round"/></svg>';
+}
+function patientHumanHtml(p,color){
+  return '<div class="pixel-human '+esc(color||'gray')+' '+(effectiveCanWalk(p)==='yes'?'mobile':'stretcher')+'">'+patientVectorSvg(p)+'</div>';
+}
+function patientFocusAvatarHtml(p,color){
+  return '<div class="patient-focus-avatar '+esc(color||'gray')+'">'+patientVectorSvg(p)+'</div>';
+}
 function triageBadge(color){
   if(!color) return '<span class="badge neutral">—</span>';
   return '<span class="badge '+color+'">'+color+'</span>';
@@ -3856,7 +4138,7 @@ function anonymousCensusHtml(patients,title,colorFn,zone){
     const color=(colorFn&&colorFn(p))||'gray';
     const lock=patientLockFor(p.id);
     const lockLabel=lock?'<div class="patient-lock-label '+(patientLockOwnedByMe(lock)?'mine':'')+'">'+(patientLockOwnedByMe(lock)?'คุณกำลังทำ':'กำลังทำ: '+esc(lock.ownerName))+'</div>':'';
-    return '<div class="anonymous-person"><div class="pixel-human '+esc(color)+'"></div><div class="pixel-label">No. '+esc(p.id)+'</div>'+zoneEntryClockHtml(p,zone||'')+lockLabel+'</div>';
+    return '<div class="anonymous-person">'+patientHumanHtml(p,color)+'<div class="pixel-label">No. '+esc(p.id)+'</div>'+zoneEntryClockHtml(p,zone||'')+lockLabel+'</div>';
   }).join('');
   return '<div class="player-census"><div class="player-census-head"><div class="player-census-title">'+esc(title)+'</div><div class="player-census-count">'+patients.length+' patients</div></div>'
     +'<div class="anonymous-people">'+(icons||'<span class="hint">ยังไม่มีผู้ป่วยในโซน</span>')+'</div></div>';
@@ -3890,11 +4172,11 @@ function viewPrimary(){
   if(p){
     const dead=patientIsDead(p,elapsed),busy=hasAnyTxInProgress(p,elapsed),triageBlocked=busy||!staffFree;
     card='<div class="patient-card stripe-'+(p.primary||'')+'">'
-      +'<div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div>'
+      +'<div class="pidrow">'+patientFocusAvatarHtml(p,p.primary||'gray')+'<span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+(dead?'<span class="badge dead">DEAD</span>':'')+'</div>'
       +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Primary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Primary triage</span>'+triageButtonsHtml(p.id,'primary',p.primary,'primarySet',triageBlocked)+'</div>'+triageTreatmentHtml(p,'PRIMARY',elapsed)+'<div class="subrow"><button class="btn sm primary" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="SECONDARY" '+((!p.primary||busy)?'disabled':'')+'>ส่งต่อ Secondary Triage →</button><button class="btn sm" data-act="primarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+((!p.primary||busy)?'disabled':'')+'>Discharge</button></div>')
       +'</div>';
   }
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🩺 Primary Triage</h1></div><div class="capbar">Staff <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TRIAGE STATION</div><h1>'+stationHeading('primary','Primary Triage')+'</h1></div><div class="capbar">Staff <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
     +anonymousCensusHtml(queue,'ผู้ป่วยใน Primary Triage',function(p){return p.primary||'gray';},'PRIMARY')
     +patientSearchHtml('PRIMARY','primaryIdInput','กรอก Patient No. เพื่อรับผู้ป่วยใหม่ หรือเปิดผู้ป่วยที่อยู่ในโซน',true)
     +(card||'<div class="focused-patient-empty">กรอก No. เพื่อเปิดรายละเอียดผู้ป่วยบนหน้าจอเครื่องนี้</div>');
@@ -3911,10 +4193,10 @@ function viewSecondary(){
   let card='';
   if(p){
     const dead=patientIsDead(p,elapsed),isBlack=p.secondary==='BLACK',busy=hasAnyTxInProgress(p,elapsed),triageBlocked=busy||!staffFree;
-    card='<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Primary: '+triageBadge(p.primary)+(dead?'<span class="badge dead">💀 DEAD</span>':'')+'</div>'
+    card='<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'"><div class="pidrow">'+patientFocusAvatarHtml(p,p.secondary||p.primary||'gray')+'<span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Primary: '+triageBadge(p.primary)+(dead?'<span class="badge dead">DEAD</span>':'')+'</div>'
       +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Secondary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Secondary triage</span>'+triageButtonsHtml(p.id,'secondary',p.secondary,'secondarySet',triageBlocked)+'</div>'+triageTreatmentHtml(p,'SECONDARY',elapsed)+'<div class="subrow">'+(isBlack?'':'<button class="btn sm primary" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="TX" '+((!p.secondary||busy)?'disabled':'')+'>ส่งต่อ Treatment →</button>')+'<button class="btn sm" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+((!p.secondary||busy)?'disabled':'')+'>Discharge</button></div>')+'</div>';
   }
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🔎 Secondary Triage</h1></div><div class="capbar">Staff <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">ASSESSMENT STATION</div><h1>'+stationHeading('secondary','Secondary Triage')+'</h1></div><div class="capbar">Staff <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
     +anonymousCensusHtml(queue,'ผู้ป่วยใน Secondary Triage',function(p){return p.primary||'gray';},'SECONDARY')
     +patientSearchHtml('SECONDARY','secondaryIdInput','กรอก Patient No. เพื่อเปิดผู้ป่วย',false)
     +(card||'<div class="focused-patient-empty">กรอก No. ก่อนทำ Secondary Triage</div>');
@@ -3972,16 +4254,16 @@ function viewTx(zone){
   let card='';
   if(p){
     const status=computeTxStatus(p,findCase(STATE.cases,p.id),elapsed),dead=status==='DEAD',busy=hasAnyTxInProgress(p,elapsed);
-    card='<div class="patient-card stripe-'+zone+'"><div class="pidrow"><span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+statusBadgeForTx(status)+'</div>'
-      +'<div class="subrow"><span>Primary: '+triageBadge(p.primary)+'</span><span>Secondary: '+triageBadge(p.secondary)+'</span></div>'
-      +'<div style="margin-top:10px;"><label class="label">Diagnosis / Impression (Dx)</label><input type="text" data-act="txDx" data-pid="'+esc(p.id)+'" data-preserve id="txdx_'+esc(p.id)+'" value="'+esc(p.dx||'')+'" placeholder="เช่น suspected fracture, chest injury"></div>'
-      +'<div style="margin-top:10px;"><label class="label">รายละเอียดเคส / Handoff note</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="3" placeholder="บันทึกอาการ การประเมิน และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
-      +(dead?'<div class="hint" style="color:var(--red);margin-top:8px;">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div>':'<div style="margin-top:10px;">'+visibleTxSlotIndexes(p).map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="subrow"><button class="btn sm primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่ง Transfer →</button><button class="btn sm" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:6px;">ระบบจะไม่บอกว่ารักษาถูกหรือครบตามเวลาหรือไม่ — ทีมต้องตัดสินใจส่งต่อเอง ผลจะปรากฏเมื่อผู้ป่วยถึงโรงพยาบาล/Debrief</div>')+'</div>';
+    card='<div class="treatment-workspace"><div class="patient-card stripe-'+zone+' treatment-overview">'
+      +'<div class="treatment-section">'+patientFocusAvatarHtml(p,zone)+'<div class="treatment-case-id">NO. '+esc(p.id)+'</div><div class="treatment-case-status">'+canWalkBadge(effectiveCanWalk(p))+statusBadgeForTx(status)+'</div></div>'
+      +'<div class="treatment-section"><div class="treatment-section-title">TRIAGE PROFILE</div><div class="subrow"><span>Primary '+triageBadge(p.primary)+'</span><span>Secondary '+triageBadge(p.secondary)+'</span></div>'+zoneEntryClockHtml(p,'TX_'+zone)+'</div>'
+      +'<div class="treatment-section"><div class="treatment-section-title">RESOURCE RACK</div><div class="resource-rack">'+STATE.resources.map(function(r){return '<div class="resource-chip"><span>'+esc(r.item)+'</span><b style="'+(Number(r.stock)<=0?'color:var(--red)':'')+'">'+r.stock+'</b></div>';}).join('')+'</div></div></div>'
+      +'<div class="card treatment-console"><div class="treatment-section"><div class="treatment-section-title">CLINICAL IMPRESSION</div><label class="label">Diagnosis / Impression (Dx)</label><input type="text" data-act="txDx" data-pid="'+esc(p.id)+'" data-preserve id="txdx_'+esc(p.id)+'" value="'+esc(p.dx||'')+'" placeholder="เช่น suspected fracture, chest injury"><label class="label" style="margin-top:12px">Handoff Note</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="4" placeholder="บันทึกอาการ การประเมิน และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
+      +(dead?'<div class="treatment-section"><span class="badge dead">DEAD</span><div class="hint" style="color:var(--red);margin-top:8px">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div></div>':'<div class="treatment-section"><div class="treatment-section-title">TREATMENT SEQUENCE</div>'+visibleTxSlotIndexes(p).map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="treatment-actions"><button class="btn primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่งต่อ Transfer →</button><button class="btn" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:10px">ระบบจะไม่เปิดเผยคำตอบระหว่างเกม ผลการตัดสินใจจะแสดงใน Debrief</div>')+'</div></div>';
   }
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>'+(zone==='RED'?'🔴':zone==='YELLOW'?'🟡':'🟢')+' Treatment · '+zone+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TREATMENT STATION · '+zone+'</div><h1>'+stationHeading('treatment','Treatment · '+zone)+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
     +anonymousCensusHtml(queue,'ผู้ป่วยใน Treatment '+zone,function(){return zone;},'TX_'+zone)
     +patientSearchHtml(focusKey,'txIdInput_'+zone,'กรอก Patient No. ก่อนเริ่ม Treatment',false)
-    +'<div class="card" style="margin-bottom:14px;"><h3>ทรัพยากรคงเหลือ</h3><div class="grid cols-4">'+STATE.resources.map(function(r){return '<div class="kv"><span class="k">'+esc(r.item)+'</span><span class="v"'+(Number(r.stock)<=0?' style="color:var(--red);"':'')+'>'+r.stock+'</span></div>';}).join('')+'</div><div class="hint">หากไม่พอ ให้แจ้ง GM เพื่อเพิ่ม Stock</div></div>'
     +(card||'<div class="focused-patient-empty">กรอก No. ก่อนเปิด Treatment ของผู้ป่วย</div>');
 }
 
@@ -4012,9 +4294,9 @@ function viewTransfer(){
   const lying=selectedPatients.length-sitting;
   const load=selectedVehicle?calcVehicleLoad(selectedVehicle.type,selectedPatients.length,sitting,lying,transferUi.hospital?1:0):{ok:false,label:'กรุณาเลือกรถ'};
   function vehicleDisplayName(v){return String(v&&v.name||'').replace(/_/g,'');}
-  const vehicleChoices=parkedVehicles.map(function(v){
+  const vehicleChoices=parkedVehicles.map(function(v,bayIndex){
     const type=dashboardVehicleType(v);
-    return '<button class="transfer-vehicle-choice '+type+'" data-act="transferVehicleLocal" data-vehicle="'+esc(v.name)+'" title="เลือก '+esc(v.name)+'">'
+    return '<button class="transfer-vehicle-choice '+type+'" data-act="transferVehicleLocal" data-vehicle="'+esc(v.name)+'" data-bay="'+(bayIndex+1)+'" title="เลือก '+esc(v.name)+'">'
       +'<span class="parking-vehicle-label">'+esc(vehicleDisplayName(v))+'</span><div class="vehicle-visual '+type+'">'+vehicleGraphicSvg(type)+'</div></button>';
   }).join('');
   const returningVehicles=busyVehicles.map(function(v){
@@ -4030,7 +4312,7 @@ function viewTransfer(){
     const dead=patientIsDead(p,elapsed),color=p.secondary||'GREEN',otherLock=patientLockedByOther(p.id);
     const disabled=!selectedVehicle||dead||!!otherLock;
     return '<button class="transfer-patient-choice" data-act="transferPatientLocal" data-pid="'+esc(p.id)+'" '+(disabled?'disabled':'')+' title="'+(otherLock?'No. นี้กำลังจัดโดย '+esc(otherLock.ownerName):'นำ Patient No. '+esc(p.id)+' ขึ้นรถ')+'">'
-      +'<div class="pixel-human '+esc(color)+'"></div><span class="vp-no">No. '+esc(p.id)+'</span><span class="mobility">'+(effectiveCanWalk(p)==='yes'?'🚶 นั่ง':'🛏️ นอน')+'</span>'
+      +patientHumanHtml(p,color)+'<span class="vp-no">No. '+esc(p.id)+'</span><span class="mobility">'+(effectiveCanWalk(p)==='yes'?'🚶 นั่ง':'🛏️ นอน')+'</span>'
       +zoneEntryClockHtml(p,'TRANSFER')
       +'<span class="transfer-clinical"><b>Dx:</b> '+esc(transferDiagnosis(p))+'<br><b>Tx:</b> '+esc(transferTreatmentSummary(p,elapsed))+'</span>'
       +(otherLock?'<span class="transfer-lock">กำลังจัดโดย '+esc(otherLock.ownerName)+'</span>':'')+'</button>';
@@ -4038,13 +4320,13 @@ function viewTransfer(){
   function stagingPassenger(p){
     const color=dashboardPatientColor(p,elapsed);
     return '<button class="vehicle-passenger staging-passenger vp-'+color+'" data-act="transferPatientLocal" data-pid="'+esc(p.id)+'" title="นำ Patient No. '+esc(p.id)+' ลงจากรถ">'
-      +'<div class="pixel-human '+color+'"></div><span class="vp-no">No. '+esc(p.id)+'</span>'+zoneEntryClockHtml(p,'TRANSFER')+'</button>';
+      +patientHumanHtml(p,color)+'<span class="vp-no">No. '+esc(p.id)+'</span>'+zoneEntryClockHtml(p,'TRANSFER')+'</button>';
   }
   function stagingVehicleHtml(){
     if(!selectedVehicle)return '<div class="staging-placeholder"><div class="big">🚑</div>เลือกรถจากลานจอดก่อน<br>รถที่เลือกจะย้ายมาอยู่ตรงนี้เฉพาะหน้าจอของคุณ</div>';
     const type=dashboardVehicleType(selectedVehicle);
     const onboard=selectedPatients.length?'<div class="vehicle-passengers '+type+'">'+selectedPatients.map(stagingPassenger).join('')+'</div>':'';
-    return '<div class="vehicle-tile transfer-staging-vehicle '+type+'"><div class="vehicle-tile-head"><div class="vehicle-name">'+esc(vehicleDisplayName(selectedVehicle))+'</div><div class="vehicle-type">'+type+'</div></div>'
+    return '<div class="vehicle-tile transfer-staging-vehicle '+type+'" id="dispatchVehicleVisual"><div class="vehicle-tile-head"><div class="vehicle-name">'+esc(vehicleDisplayName(selectedVehicle))+'</div><div class="vehicle-type">'+type+'</div></div>'
       +'<div class="vehicle-meta">แตะผู้ป่วยบนรถเพื่อนำลง</div><div class="vehicle-visual '+type+'">'+vehicleGraphicSvg(type)+onboard+'</div>'
       +'<div class="vehicle-meta '+(load.ok?'vehicle-load-ok':'vehicle-load-bad')+'">'+esc(load.label)+' · นั่ง '+sitting+' · นอน '+lying+'</div></div>';
   }
@@ -4064,10 +4346,10 @@ function viewTransfer(){
   const hospitalOptions=['<option value="">— เลือกโรงพยาบาล —</option>'].concat(STATE.hospitals.map(function(h){return '<option value="'+esc(h.name)+'">'+esc(h.name)+'</option>';})).join('');
   const selectedHospitalOptions=hospitalOptions.replace('value="'+esc(transferUi.hospital||'###')+'"','value="'+esc(transferUi.hospital||'###')+'" selected');
   const canSend=!!selectedVehicle&&selectedPatients.length>0&&!!transferUi.hospital&&load.ok;
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>🚑 Transfer & Vehicle</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TRANSPORT OPERATIONS</div><h1>'+stationHeading('transfer','Transfer & Vehicle')+'</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'
     +'<div class="transfer-workflow">'
       +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">1</span>ลานจอดรถ <span class="badge neutral">ว่าง '+availableVehicles.length+' คัน</span></div>'
-        +'<div class="hint" style="margin-bottom:10px;">รถที่ทุกหน้าจอเห็นตรงกัน · เลือกแล้วจะย้ายไปช่องเตรียมส่งเฉพาะหน้าจอนี้</div><div class="transfer-vehicle-grid">'+(vehicleChoices||'<span class="hint">ไม่มีรถว่างในลานจอด</span>')+'</div>'
+        +'<div class="hint" style="margin-bottom:10px;">รถที่ทุกหน้าจอเห็นตรงกัน · เลือก Bay เพื่อย้ายรถไปช่องเตรียมส่ง</div><div class="transfer-vehicle-grid ambulance-bay">'+(vehicleChoices||'<span class="hint">ไม่มีรถว่างในลานจอด</span>')+'</div>'
         +(busyVehicles.length?'<div class="transfer-returning"><div class="transfer-row-head"><b>รถออกปฏิบัติการ / กำลังกลับ</b><span class="badge wait">'+busyVehicles.length+' คัน</span></div><div class="transfer-return-grid">'+returningVehicles+'</div></div>':'')+'</div>'
       +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">2</span>ผู้ป่วยรอขึ้นรถ <span class="badge neutral">ข้อมูลกลาง '+queue.length+' คน</span></div>'+colorRows
         +(black.length?'<div class="transfer-patient-row"><div class="transfer-row-head"><b>BLACK</b><span class="badge BLACK">'+black.length+' คน</span></div><div class="transfer-patient-grid">'+black.filter(function(p){return selectedIds.indexOf(normU(p.id))<0;}).map(waitingPatientChoice).join('')+'</div></div>':'')
@@ -4111,7 +4393,7 @@ function viewDispatch(embedded){
 
   if(embedded) return table;
   return ''
-  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>📡 Vehicle Dispatch</h1></div></div>'
+  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TRANSPORT OPERATIONS</div><h1>'+stationHeading('transfer','Vehicle Dispatch')+'</h1></div></div>'
   + table;
 }
 
@@ -4138,7 +4420,7 @@ function viewDischargeLog(embedded){
 
   if(embedded) return table;
   return ''
-  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">STATION</div><h1>📋 Discharge Log</h1></div>'
+  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">PATIENT RECORD</div><h1>'+stationHeading('discharge','Discharge Log')+'</h1></div>'
   +   '<span class="badge neutral">ทั้งหมด '+closed.length+'</span></div>'
   + table;
 }
@@ -4178,7 +4460,7 @@ function viewGM(){
   else if(STATE.gmTab==='debrief') body = gmTabDebrief();
 
   return ''
-  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">COMMAND</div><h1>🎛️ GM Dashboard</h1></div></div>'
+  + '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">INCIDENT COMMAND</div><h1>'+stationHeading('command','GM Dashboard')+'</h1></div></div>'
   + '<div class="tabs">'+tabsHtml+'</div>'
   + body;
 }
@@ -4214,7 +4496,7 @@ function dashboardPatientSub(p,zone,elapsed){
 function pixelPatientHtml(p,zone,elapsed){
   const color=dashboardPatientColor(p,elapsed);
   return '<div class="pixel-patient" title="#'+esc(p.id)+' · '+esc(dashboardPatientSub(p,zone,elapsed))+'">'
-    +'<div class="pixel-human '+color+'"></div><div class="pixel-label">No. '+esc(p.id)+'</div>'
+    +patientHumanHtml(p,color)+'<div class="pixel-label">No. '+esc(p.id)+'</div>'
     +zoneEntryClockHtml(p,zone)+'<div class="pixel-sub">'+esc(dashboardPatientSub(p,zone,elapsed))+'</div></div>';
 }
 function zoneStaffActivity(name,stationIds,elapsed){
@@ -4260,16 +4542,18 @@ function vehicleGraphicSvg(type){
   if(type==='BUS'){
     return '<svg class="vehicle-art" viewBox="0 0 240 150" role="img" aria-label="รถ BUS"><rect class="vehicle-body" x="5" y="4" width="230" height="132" rx="14"/><rect class="vehicle-panel" x="12" y="10" width="216" height="112" rx="8"/>'
       +'<rect x="211" y="13" width="14" height="106" rx="4" fill="#dce9ee"/><rect x="17" y="16" width="188" height="94" rx="6" fill="rgba(255,255,255,.18)"/>'
+      +'<rect class="vehicle-siren-left" x="103" y="1" width="16" height="6" rx="2" fill="#ff4d55"/><rect class="vehicle-siren-right" x="121" y="1" width="16" height="6" rx="2" fill="#4da3ff"/>'
       +'<circle class="vehicle-wheel" cx="51" cy="136" r="12"/><circle class="vehicle-hub" cx="51" cy="136" r="5"/><circle class="vehicle-wheel" cx="190" cy="136" r="12"/><circle class="vehicle-hub" cx="190" cy="136" r="5"/></svg>';
   }
   return '<svg class="vehicle-art" viewBox="0 0 240 92" role="img" aria-label="รถพยาบาล '+type+'"><path class="vehicle-body" d="M16 30Q16 18 28 18H143Q153 18 158 28L173 42H217Q226 42 228 51V68H16Z"/>'
     +'<rect class="vehicle-panel" x="30" y="27" width="105" height="33" rx="5"/><path class="vehicle-window" d="M159 30H183L204 48H173Z"/><rect class="vehicle-window" x="138" y="30" width="15" height="18" rx="2"/>'
     +'<rect x="68" y="31" width="10" height="25" rx="2" fill="#ffffff"/><rect x="60" y="39" width="26" height="10" rx="2" fill="#ffffff"/><rect x="20" y="51" width="12" height="8" rx="2" fill="#f8fafc"/>'
+    +'<rect class="vehicle-siren-left" x="99" y="12" width="17" height="6" rx="2" fill="#ff4d55"/><rect class="vehicle-siren-right" x="118" y="12" width="17" height="6" rx="2" fill="#4da3ff"/>'
     +'<circle class="vehicle-wheel" cx="61" cy="69" r="13"/><circle class="vehicle-hub" cx="61" cy="69" r="5"/><circle class="vehicle-wheel" cx="190" cy="69" r="13"/><circle class="vehicle-hub" cx="190" cy="69" r="5"/></svg>';
 }
 function vehiclePassengerHtml(p,elapsed){
   const color=dashboardPatientColor(p,elapsed);
-  return '<div class="vehicle-passenger vp-'+color+'" title="Patient No. '+esc(p.id)+'"><div class="pixel-human '+color+'"></div><span class="vp-no">No. '+esc(p.id)+'</span>'+zoneEntryClockHtml(p,'TRANSFER')+'</div>';
+  return '<div class="vehicle-passenger vp-'+color+'" title="Patient No. '+esc(p.id)+'">'+patientHumanHtml(p,color)+'<span class="vp-no">No. '+esc(p.id)+'</span>'+zoneEntryClockHtml(p,'TRANSFER')+'</div>';
 }
 function dashboardVehicleTileHtml(v,passengers,elapsed,isParking){
   const type=dashboardVehicleType(v);
@@ -4378,7 +4662,11 @@ function gmTabControl(){
   const useMap = mapSettings().useMap;
   const sceneStatusLabel = !useMap ? '🚫 ปิดใช้ Map — ไม่ต้องตั้ง Scene, เริ่มเกมได้ทันที'
     : scene.skipped ? '⏭️ ข้ามขั้นตอนแล้ว' : scene.published ? '✅ เผยแพร่ผังแล้ว' : '⚠️ ยังไม่ได้ตั้งค่า Scene';
+  const completionBanner=gc.status==='ENDED'
+    ? '<div class="mission-complete"><div class="mc-kicker">INCIDENT TERMINATED</div><div class="mc-title">ภารกิจสิ้นสุดแล้ว</div><div class="mc-meta">เวลาปฏิบัติการ '+fmtClock(elapsed)+' · ปิดเคส '+closedCount+'/'+totalPatients+' · Transfer สำเร็จ '+acceptedCount+' · เปิดแท็บ Debrief เพื่อทบทวน Timeline</div></div>'
+    : '';
   return ''
+  + completionBanner
   + '<div class="grid cols-4">'
   +   statCard('ผู้ป่วยทั้งหมด', totalPatients)
   +   statCard('ปิดเคสแล้ว', closedCount)
@@ -4637,7 +4925,7 @@ function commanderRoster(){
   return '<div class="card"><h3>มอบหมายหน้าที่ผู้เล่น ('+names.length+')</h3><table><thead><tr><th>ชื่อ</th><th>หน้าที่</th><th>ล่าสุด</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function viewCommander(){
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">COMMAND</div><h1>🧭 Commander Dashboard</h1></div></div>'+commanderRoster()+'<div class="section-gap">'+hospitalCapacityReadonly()+'</div>';
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">INCIDENT COMMAND</div><h1>'+stationHeading('commander','Commander Dashboard')+'</h1></div></div>'+commanderRoster()+'<div class="section-gap">'+hospitalCapacityReadonly()+'</div>';
 }
 function gmTabVehicles(){
   const elapsed=elapsedMinutes(STATE.gc);
@@ -4879,7 +5167,10 @@ function gmTabDebrief(){
       +'<div class="timeline-meta">'+(e.by?'ดำเนินการโดย '+esc(e.by):'ระบบ')+(e.patient?' · Patient No. '+esc(e.patient.id):'')+'</div></div>';
   }).join('');
   const endText=STATE.gc.status==='ENDED'&&STATE.gc.endedElapsed!=null?timelineDateTime(STATE.gc.endedElapsed):'เกมยังไม่จบ';
-  return '<div class="grid cols-4">'
+  const launch=STATE.gc.status==='ENDED'&&!STATE.gc.debriefActive
+    ? '<div class="mission-complete"><div class="mc-kicker">DEBRIEF READY</div><div class="mc-title">พร้อมทบทวนภารกิจ</div><div class="mc-meta">เมื่อกดเริ่ม ผู้เล่นทุกคนจะถูกย้ายจากหน้าจบภารกิจไปยัง Timeline ส่วนตัวพร้อมกัน</div><button class="btn primary" data-act="gmStartDebrief" style="margin-top:14px">▶ เริ่ม Debrief สำหรับทุกคน</button></div>'
+    : (STATE.gc.debriefActive?'<div class="mission-complete"><div class="mc-kicker">DEBRIEF ACTIVE</div><div class="mc-title">กำลัง Debrief</div><div class="mc-meta">ผู้เล่นทุกคนกำลังดู Timeline ของตัวเอง · GM ยังสามารถกรองและดูภาพรวมทั้งหมดด้านล่าง</div></div>':'');
+  return launch+'<div class="grid cols-4">'
     +statCard('Primary Triage ถูก',percentOf(primaryCorrect.length,primaryRecords.length)+'<div class="summary-detail">'+primaryCorrect.length+'/'+primaryRecords.length+' ครั้ง</div>')
     +statCard('Secondary Triage ถูก',percentOf(secondaryCorrect.length,secondaryRecords.length)+'<div class="summary-detail">'+secondaryCorrect.length+'/'+secondaryRecords.length+' ครั้ง</div>')
     +statCard('Overtriage',over.length+'<div class="summary-detail">โดย '+actorBreakdown(over)+'</div>')
@@ -4893,11 +5184,38 @@ function gmTabDebrief(){
     +'<div class="timeline-filter-row"><div class="timeline-filter-label">กรองตามประเภทงาน · เปิด/ปิดร่วมกับ Player ได้</div><div class="timeline-filter">'+categoryButtons+'</div></div>'
     +'<div class="master-timeline">'+(rows||'<div class="zone-empty">ยังไม่มีเหตุการณ์ในตัวกรองนี้</div>')+'</div></div>';
 }
+function viewPersonalDebrief(){
+  const elapsed=elapsedMinutes(STATE.gc),name=STATE.me.name||'';
+  const entries=buildMasterTimeline(elapsed).filter(function(e){return e.by===name;});
+  const evaluated=entries.map(function(e){return {entry:e,result:eventCorrectness(e)};}).filter(function(x){return !!x.result;});
+  const correct=evaluated.filter(function(x){return x.result.ok;}).length,needsReview=evaluated.length-correct;
+  const categories={PRIMARY:0,SECONDARY:0,TREATMENT:0,TRANSFER:0};entries.forEach(function(e){const c=debriefEventCategory(e.type);if(categories[c]!=null)categories[c]++;});
+  const rows=entries.map(function(e){
+    const evaluation=eventCorrectness(e);
+    return '<div class="timeline-event '+timelineCategory(e.type)+'"><div class="timeline-time">'+timelineClock(e.t)+' <span class="hint">(+'+fmtClock(e.t)+')</span></div><div class="timeline-desc">'+esc(timelineDescription(e))+'</div>'
+      +(evaluation?'<div><span class="eval-badge '+(evaluation.ok?'good':'bad')+'">'+esc(evaluation.text)+'</span></div>':'')
+      +'<div class="timeline-meta">'+(e.patient?'Patient No. '+esc(e.patient.id)+' · ':'')+'บันทึกจากสถานีของคุณ</div></div>';
+  }).join('');
+  return '<div class="personal-debrief-head"><div class="eyebrow">PERSONAL PERFORMANCE REVIEW</div><h1>'+stationHeading('commander','Debrief · '+esc(name))+'</h1><p>Timeline นี้แสดงเฉพาะการตัดสินใจและการปฏิบัติงานของคุณ เพื่อทบทวนสิ่งที่ทำได้ดีและจุดที่ควรแก้ไข</p>'
+    +'<div class="personal-score-grid"><div class="personal-score"><b>'+entries.length+'</b><span>เหตุการณ์ทั้งหมด</span></div><div class="personal-score"><b style="color:var(--green)">'+correct+'</b><span>การตัดสินใจถูกต้อง</span></div><div class="personal-score"><b style="color:var(--red)">'+needsReview+'</b><span>รายการที่ควรทบทวน</span></div></div></div>'
+    +'<div class="card"><div class="flexrow" style="justify-content:space-between;margin-bottom:16px"><div><h3 style="margin-bottom:3px">My Event Timeline</h3><div class="hint">Primary '+categories.PRIMARY+' · Secondary '+categories.SECONDARY+' · Treatment '+categories.TREATMENT+' · Transfer '+categories.TRANSFER+'</div></div><span class="badge neutral">เฉพาะ '+esc(name)+'</span></div><div class="master-timeline">'+(rows||'<div class="zone-empty">ไม่พบเหตุการณ์ที่ดำเนินการด้วยชื่อผู้เล่นนี้</div>')+'</div></div>';
+}
 
 /* ============================================================
    24) EVENT WIRING (delegated) + BOOT
 ============================================================ */
 function val(id){ const el = document.getElementById(id); return el ? el.value : ''; }
+function animateDispatchExit(){
+  return new Promise(function(resolve){
+    const vehicle=document.getElementById('dispatchVehicleVisual');
+    const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!vehicle||reduced){resolve();return;}
+    vehicle.classList.add('dispatching-vehicle');
+    let done=false;const finish=function(){if(done)return;done=true;resolve();};
+    vehicle.addEventListener('animationend',finish,{once:true});
+    setTimeout(finish,850);
+  });
+}
 
 async function handleClick(el){
   const act = el.dataset.act;
@@ -4926,6 +5244,7 @@ async function handleClick(el){
   if(act==='gmTab'){STATE.gmTab=el.dataset.tab;saveLocalSession();render(true);return;}
   if(act==='gmStart'){ await gmStartGame(); return; }
   if(act==='gmEnd'){ await gmEndGame(); return; }
+  if(act==='gmStartDebrief'){ await gmStartDebrief(); return; }
   if(act==='gmReset'){ if(confirm('ยืนยัน Reset เกม? ข้อมูลผู้ป่วยทั้งหมดจะถูกลบ')) await gmResetGame(); return; }
   if(act==='sceneImport'){ window.SceneApp && window.SceneApp.triggerImport(); return; }
   if(act==='sceneExport'){ window.SceneApp && window.SceneApp.exportFile(); return; }
@@ -5070,8 +5389,10 @@ async function handleClick(el){
   }
   if(act==='transferSendBatch'){
     const ui=STATE.ui.transfer;
-    const sent=await dispatchSend(ui.vehicle,(ui.patientIds||[]).slice(),ui.hospital);
-    if(sent){STATE.ui.transfer={vehicle:null,patientIds:[],hospital:null};saveLocalSession();render(true);}
+    const sendButton=el;sendButton.disabled=true;sendButton.textContent='กำลังส่งรถ...';
+    const sent=await dispatchSend(ui.vehicle,(ui.patientIds||[]).slice(),ui.hospital,true);
+    if(sent){await animateDispatchExit();STATE.ui.transfer={vehicle:null,patientIds:[],hospital:null};saveLocalSession();render(true);}
+    else{sendButton.disabled=false;sendButton.textContent='SEND รถพร้อมผู้ป่วย';}
     return;
   }
   if(act==='gmAssign'){ /* handled on change */ return; }

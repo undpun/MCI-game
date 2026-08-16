@@ -569,10 +569,15 @@ tr.row-hover:hover td{background:rgba(255,255,255,.02);}
 .comm-head-title{font-weight:800;font-size:13px}.comm-head-sub{font-size:10px;color:var(--ink-faint);margin-top:2px}.comm-close{width:28px;height:28px;border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--ink-dim);cursor:pointer;}
 .comm-layout{display:grid;grid-template-columns:190px 1fr;min-height:0;flex:1;}.comm-zone-list{overflow:auto;border-right:1px solid var(--line);background:#0d141c;padding:7px;}.comm-zone-tab{position:relative;width:100%;text-align:left;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--ink-dim);padding:9px 34px 9px 9px;margin-bottom:4px;cursor:pointer;}.comm-zone-tab:hover,.comm-zone-tab.active{background:rgba(75,228,216,.08);border-color:rgba(75,228,216,.22);color:var(--ink);}.comm-zone-tab b{display:block;font-size:11px}.comm-zone-tab small{display:block;font-size:9px;margin-top:3px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.comm-zone-tab .comm-unread{position:absolute;right:7px;top:8px;}
 .comm-thread{display:flex;flex-direction:column;min-width:0;min-height:0;flex:1;}.comm-messages{flex:1;overflow:auto;padding:12px;background:radial-gradient(circle at 70% 0,rgba(47,211,199,.05),transparent 38%);}.comm-empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--ink-faint);font-size:12px;padding:20px;}.comm-message{max-width:86%;margin:0 0 9px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;background:#18222d;color:var(--ink);font-size:12px;line-height:1.45;}.comm-message.mine{margin-left:auto;background:#12312f;border-color:rgba(75,228,216,.28);}.comm-message.request{border-left:3px solid #eab308}.comm-message.urgent{border-left:3px solid #ef4444}.comm-message-meta{display:flex;justify-content:space-between;gap:8px;margin-bottom:3px;color:var(--ink-faint);font-size:9px}.comm-kind{font-weight:800;color:#eab308}.comm-message.urgent .comm-kind{color:#f87171}
+.comm-message-action{width:100%;margin-top:7px;min-height:34px}.comm-move-done{display:flex;align-items:center;gap:5px;margin-top:7px;padding:6px 8px;border:1px solid rgba(34,197,94,.3);border-radius:7px;background:rgba(34,197,94,.08);color:#86efac;font-size:10px;font-weight:800}
 .comm-composer{border-top:1px solid var(--line);padding:9px;background:#121b25;}.comm-quick{display:flex;gap:5px;overflow-x:auto;padding-bottom:7px;scrollbar-width:thin}.comm-chip{flex:0 0 auto;border:1px solid var(--line);border-radius:999px;background:#17222d;color:var(--ink-dim);padding:5px 8px;font-size:10px;cursor:pointer;white-space:nowrap}.comm-chip:hover{border-color:var(--cyan);color:var(--ink)}.comm-chip.urgent{border-color:rgba(239,68,68,.55);color:#fca5a5}.comm-input-row{display:flex;gap:6px}.comm-input-row input{min-width:0;flex:1}.comm-send{flex:0 0 auto}.comm-locked{padding:10px;border:1px dashed var(--line);border-radius:8px;color:var(--ink-faint);font-size:11px;text-align:center}.comm-structured{padding:8px;margin-bottom:7px;border:1px solid rgba(234,179,8,.28);border-radius:8px;background:rgba(234,179,8,.05)}.comm-structured .grid{gap:6px}.comm-structured label{font-size:9px;color:var(--ink-faint)}.comm-structured input,.comm-structured select{padding:6px;font-size:11px}.comm-notice{padding:5px 9px;background:rgba(75,228,216,.08);color:var(--cyan);font-size:10px;border-bottom:1px solid rgba(75,228,216,.15)}
 .head-zone-control{display:flex;justify-content:flex-end;align-items:center;gap:7px;margin:-5px 0 10px;min-height:30px}.head-zone-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid rgba(234,179,8,.35);border-radius:999px;background:rgba(234,179,8,.08);color:#fde68a;font-size:11px;font-weight:700}.head-zone-btn{border:1px solid rgba(234,179,8,.55);border-radius:8px;background:rgba(234,179,8,.12);color:#fde68a;padding:6px 9px;font-size:11px;cursor:pointer}.head-zone-btn:hover{background:rgba(234,179,8,.2)}
 .comm-roster-actions{display:flex;align-items:center;gap:5px}.comm-roster-btn{position:relative;width:31px;height:29px;border:1px solid var(--line);border-radius:7px;background:#151f29;color:var(--ink-dim);cursor:pointer}.comm-roster-btn.head{color:#facc15;border-color:rgba(250,204,21,.5);background:rgba(250,204,21,.08)}.comm-roster-btn .comm-unread{position:absolute;right:-7px;top:-7px;min-width:17px;height:17px;font-size:9px;padding:0 4px}
 @media (max-width:700px){#communicationHost{right:8px;bottom:8px}.comm-panel,.comm-panel.command-view,.comm-panel.monitor-view{position:fixed;left:8px;right:8px;bottom:62px;width:auto;max-width:none;height:min(620px,calc(100vh - 78px))}.comm-layout{grid-template-columns:120px 1fr}.comm-zone-list{padding:4px}.comm-zone-tab{padding:8px 27px 8px 6px}.comm-zone-tab small{display:none}body.comm-open #sceneViewerHost{display:none}}
+
+/* ---------- Parking fleet status: lightweight labels + live countdown only ---------- */
+.fleet-status-card{border-color:rgba(96,165,250,.34)}.fleet-status-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}.fleet-status-head h3{margin:0}.fleet-status-list{display:grid;gap:7px}.fleet-status-row{--fleet-color:#94a3b8;display:grid;grid-template-columns:minmax(92px,.8fr) minmax(190px,1.65fr) minmax(92px,.65fr);align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--line-soft);border-left:3px solid var(--fleet-color);border-radius:8px;background:rgba(13,20,28,.66);font-size:11px}.fleet-status-row.ALS{--fleet-color:#ef4444}.fleet-status-row.BLS{--fleet-color:#eab308}.fleet-status-row.BUS{--fleet-color:#22c55e}.fleet-identity{display:flex;align-items:center;gap:7px;min-width:0}.fleet-type-dot{display:inline-grid;place-items:center;width:28px;height:28px;flex:0 0 auto;border-radius:7px;background:color-mix(in srgb,var(--fleet-color) 18%,transparent);color:var(--fleet-color);font-size:15px}.fleet-name{min-width:0;font:800 11px/1.2 var(--font-mono);overflow:hidden;text-overflow:ellipsis}.fleet-stage-label{font-weight:800;color:var(--ink)}.fleet-stage-detail{color:var(--ink-faint);font-size:10px;margin-top:2px}.fleet-stage-eta{justify-self:end;color:var(--cyan);font-weight:800;text-align:right}.fleet-status-row.ready .fleet-stage-eta{color:#86efac}.fleet-status-row.reserve .fleet-stage-eta{color:var(--ink-faint)}
+@media (max-width:700px){.fleet-status-row{grid-template-columns:minmax(90px,.8fr) 1.3fr minmax(82px,.6fr)}.fleet-stage-detail{grid-column:2/4}.fleet-status-row>.fleet-stage-copy{display:contents}.fleet-stage-label{align-self:center}.fleet-stage-eta{grid-column:3;grid-row:1}}
 
 /* On/off toggle switch used for game settings (map, distance calc, etc.) */
 .toggle-row{display:flex;align-items:center;gap:10px;}
@@ -2603,6 +2608,47 @@ function vehicleDeploymentState(v,elapsed){
   if(state==='TO_LOADING'&&Number(v.busyUntilElapsed||0)<=elapsed)return 'LOADING';
   return state;
 }
+function vehicleFleetStage(v,elapsed){
+  const state=vehicleDeploymentState(v,elapsed),hospital=v.busyHospital||v.originHospital||'โรงพยาบาล';
+  if(state==='RESERVE')return {key:'RESERVE',label:'อยู่กองรถสำรอง',detail:'รอ Command / GM ส่งเข้าพื้นที่',etaEnd:null,etaPrefix:'',etaDone:'',rowClass:'reserve'};
+  if(state==='PARKING')return {key:'PARKING',label:'อยู่ Zone Parking',detail:'พร้อมรับคำสั่งส่งไป Loading',etaEnd:null,etaPrefix:'',etaDone:'พร้อมใช้',rowClass:'ready'};
+  if(state==='LOADING')return {key:'LOADING',label:'อยู่ Zone Loading',detail:'พร้อมรับผู้ป่วยขึ้นรถ',etaEnd:null,etaPrefix:'',etaDone:'พร้อมใช้',rowClass:'ready'};
+  if(state==='TO_PARKING')return {key:'TO_PARKING',label:'กำลังไป Zone Parking',detail:'ออกจาก '+hospital,etaEnd:Number(v.busyUntilElapsed||elapsed),etaPrefix:'ถึงใน ',etaDone:'ถึง Parking',rowClass:'moving'};
+  if(state==='TO_LOADING')return {key:'TO_LOADING',label:'กำลังไป Zone Loading',detail:'ออกจาก '+(v.originHospital||'Parking'),etaEnd:Number(v.busyUntilElapsed||elapsed),etaPrefix:'ถึงใน ',etaDone:'ถึง Loading',rowClass:'moving'};
+  if(state==='HOSPITAL_TRIP'){
+    const started=Number(v.busyStartElapsed||elapsed),hospitalAt=started+Math.max(0,Number(v.outboundMin||0)),returnAt=Number(v.busyUntilElapsed||hospitalAt),returnZone=transportCombined()?'Loading + Parking':'Parking';
+    if(elapsed<hospitalAt)return {key:'TO_HOSPITAL',label:'กำลังไป รพ. '+hospital,detail:'ออกจาก Loading · มีผู้ป่วยบนรถ',etaEnd:hospitalAt,etaPrefix:'ถึง รพ. ใน ',etaDone:'ถึง รพ.',rowClass:'moving'};
+    return {key:'RETURNING',label:'กำลังกลับ '+returnZone,detail:'ออกจาก รพ. '+hospital,etaEnd:returnAt,etaPrefix:'กลับถึงใน ',etaDone:'กลับถึงแล้ว',rowClass:'moving'};
+  }
+  return {key:state,label:'สถานะ '+state,detail:'กำลังอัปเดตตำแหน่ง',etaEnd:null,etaPrefix:'',etaDone:'',rowClass:''};
+}
+function vehicleFleetEtaHtml(stage,elapsed){
+  return '<span class="fleet-countdown">'+esc(vehicleFleetEtaText(stage,elapsed))+'</span>';
+}
+function vehicleFleetEtaText(stage,elapsed){
+  if(stage.etaEnd==null||Number(stage.etaEnd)<=elapsed)return stage.etaDone||'—';
+  const remain=Math.max(0,Number(stage.etaEnd)-elapsed);
+  return (stage.etaPrefix||'เหลือ ')+(remain>=.1?round1(remain)+' นาที':Math.max(1,Math.ceil(remain*60))+' วินาที');
+}
+function vehicleFleetStatusHtml(elapsed){
+  const visibleVehicles=(STATE.vehicles||[]).filter(function(v){return vehicleDeploymentState(v,elapsed)!=='RESERVE';});
+  const rows=visibleVehicles.map(function(v){
+    const type=dashboardVehicleType(v),stage=vehicleFleetStage(v,elapsed);
+    return '<div class="fleet-status-row '+type+' '+stage.rowClass+'" data-fleet-vehicle="'+esc(v.name)+'" data-fleet-stage="'+esc(stage.key)+'"><div class="fleet-identity"><span class="fleet-type-dot">🚑</span><div><div class="fleet-name">'+esc(v.name)+'</div><div class="hint">'+esc(type)+'</div></div></div><div class="fleet-stage-copy"><div class="fleet-stage-label">'+esc(stage.label)+'</div><div class="fleet-stage-detail">'+esc(stage.detail)+'</div></div><div class="fleet-stage-eta">'+vehicleFleetEtaHtml(stage,elapsed)+'</div></div>';
+  }).join('');
+  return '<div class="card fleet-status-card"><div class="fleet-status-head"><div><h3>🚑 Fleet Status · รถที่ขอเข้าพื้นที่</h3><div class="hint">ดูตำแหน่ง ขั้นการเดินทาง และเวลาถึงแบบนับถอยหลัง</div></div><span class="badge neutral">'+visibleVehicles.length+' คัน</span></div><div class="fleet-status-list">'+(rows||'<div class="zone-empty">ยังไม่มีรถที่ขอเข้าพื้นที่</div>')+'</div></div>';
+}
+function updateFleetStatusOnly(){
+  const elapsed=elapsedMinutes(STATE.gc);
+  document.querySelectorAll('[data-fleet-vehicle]').forEach(function(row){
+    const vehicle=(STATE.vehicles||[]).find(function(v){return v.name===row.dataset.fleetVehicle;});if(!vehicle)return;
+    const stage=vehicleFleetStage(vehicle,elapsed),changed=row.dataset.fleetStage!==stage.key;
+    if(changed){row.dataset.fleetStage=stage.key;row.classList.remove('ready','reserve','moving');if(stage.rowClass)row.classList.add(stage.rowClass);}
+    const label=row.querySelector('.fleet-stage-label'),detail=row.querySelector('.fleet-stage-detail'),eta=row.querySelector('.fleet-stage-eta');
+    if(changed&&label)label.textContent=stage.label;if(changed&&detail)detail.textContent=stage.detail;
+    const etaText=vehicleFleetEtaText(stage,elapsed);if(eta&&eta.textContent!==etaText)eta.textContent=etaText;
+  });
+}
 function sceneVehicleLeg(fromType,toType){
   const a=sceneTent(fromType),b=sceneTent(toType);
   if(!a||!b)return {minutes:0,path:[]};
@@ -2627,7 +2673,7 @@ async function parkingSendToLoading(vehicleName,requestId){
     const nextCount=Number(request.fulfilledCount||0)+1,done=nextCount>=Number(request.quantity||1);
     const reqs=(gc.vehicleRequests||[]).map(function(r){return r.id===requestId?Object.assign({},r,{status:done?'FULFILLED':'PENDING',fulfilledCount:nextCount,fulfilledAt:done?elapsed:null,lastFulfilledAt:elapsed,fulfilledBy:by,vehicles:(r.vehicles||[]).concat([vehicleName])}):r;});
     gc.vehicleRequests=reqs;gc.operationsLog=(gc.operationsLog||[]).concat([{t:elapsed,type:'PARKING_SEND_LOADING '+vehicleName,by:by}]);root[KEYS.gc]=gc;
-    root[KEYS.vehicles]=(root[KEYS.vehicles]||[]).map(function(v){return v.name===vehicleName?Object.assign({},v,{deploymentState:'TO_LOADING',busyStartElapsed:elapsed,busyUntilElapsed:elapsed+leg.minutes,outboundMin:leg.minutes,returnMin:0,outboundPath:leg.path,returnPath:[]}):v;});return root;
+    root[KEYS.vehicles]=(root[KEYS.vehicles]||[]).map(function(v){return v.name===vehicleName?Object.assign({},v,{deploymentState:'TO_LOADING',originHospital:null,busyStartElapsed:elapsed,busyUntilElapsed:elapsed+leg.minutes,outboundMin:leg.minutes,returnMin:0,outboundPath:leg.path,returnPath:[]}):v;});return root;
   });if(result.committed){toast('ส่ง '+vehicleName+' ไป Loading แล้ว','ok');}else toast(fail||'ส่งรถไม่สำเร็จ','err');
 }
 async function commandSendVehicleToParking(requestId,vehicleName,hospitalName){
@@ -2641,7 +2687,7 @@ async function commandSendVehicleToParking(requestId,vehicleName,hospitalName){
 }
 async function combinedMoveToLoading(vehicleName){
   const elapsed=elapsedMinutes(STATE.gc),leg=sceneVehicleLeg('parking','loading'),by=STATE.me.name||'';let fail='';
-  const result=await kvRootTransaction(function(root){const vehicles=root[KEYS.vehicles]||[],target=vehicles.find(function(v){return v.name===vehicleName;});if(!target||vehicleDeploymentState(target,elapsed)!=='PARKING'){fail='รถไม่ได้พร้อมอยู่ที่ Parking';return null;}const gc=Object.assign({},root[KEYS.gc]||STATE.gc);gc.operationsLog=(gc.operationsLog||[]).concat([{t:elapsed,type:'PARKING_SEND_LOADING '+vehicleName,by:by}]);root[KEYS.gc]=gc;root[KEYS.vehicles]=vehicles.map(function(v){return v.name===vehicleName?Object.assign({},v,{deploymentState:'TO_LOADING',busyStartElapsed:elapsed,busyUntilElapsed:elapsed+leg.minutes,outboundMin:leg.minutes,returnMin:0,outboundPath:leg.path,returnPath:[]}):v;});return root;});
+  const result=await kvRootTransaction(function(root){const vehicles=root[KEYS.vehicles]||[],target=vehicles.find(function(v){return v.name===vehicleName;});if(!target||vehicleDeploymentState(target,elapsed)!=='PARKING'){fail='รถไม่ได้พร้อมอยู่ที่ Parking';return null;}const gc=Object.assign({},root[KEYS.gc]||STATE.gc);gc.operationsLog=(gc.operationsLog||[]).concat([{t:elapsed,type:'PARKING_SEND_LOADING '+vehicleName,by:by}]);root[KEYS.gc]=gc;root[KEYS.vehicles]=vehicles.map(function(v){return v.name===vehicleName?Object.assign({},v,{deploymentState:'TO_LOADING',originHospital:null,busyStartElapsed:elapsed,busyUntilElapsed:elapsed+leg.minutes,outboundMin:leg.minutes,returnMin:0,outboundPath:leg.path,returnPath:[]}):v;});return root;});
   if(result.committed)toast('นำ '+vehicleName+' จาก Parking ไป Loading แล้ว','ok');else toast(fail||'นำรถมา Loading ไม่สำเร็จ','err');
 }
 function calcVehicleLoad(type, total, sitting, lying, hospitalCount){
@@ -3110,9 +3156,10 @@ async function sendCommunicationMessage(zone,text,kind,meta){
     next.channels[zone]=(next.channels[zone]||[]).concat([message]).slice(-COMM_MAX_MESSAGES);return next;
   });
   if(result.committed){
+    const hadStructuredComposer=!!STATE.ui.communication.composerMode;
     STATE.communications=result.communications;STATE.ui.communication.composerMode=null;
     const input=document.getElementById('commTextInput');if(input)input.value='';
-    communicationNotice('ส่งแล้ว');renderCommunicationUI();
+    if(hadStructuredComposer)renderCommunicationUI();else updateCommunicationLivePartsOnly();
   }else communicationNotice(senderRole==='HEAD'?'เฉพาะ Head ปัจจุบันเท่านั้นที่ส่งได้':'ส่งข้อความไม่สำเร็จ');
 }
 
@@ -3147,9 +3194,8 @@ function startCommunicationListener(session){
     const incoming=newMessages.filter(function(m){const displayZone=transportCombined()&&(m.zone==='LOADING'||m.zone==='PARKING')?'LOADING_PARKING':m.zone;return communicationIncomingForMe(m,displayZone);});
     if(incoming.some(function(m){return m.kind==='urgent';}))playCommunicationSound('urgent');
     else if(incoming.some(function(m){return m.kind==='request';}))playCommunicationSound('request');
-    if(beforeHeads!==communicationHeadsSignature(next)){STATE._snapshot=null;scheduleBackgroundRender();}
-    updateCommanderCommunicationBadgesOnly();
-    renderCommunicationUI();
+    if(beforeHeads!==communicationHeadsSignature(next)){STATE._snapshot=null;scheduleBackgroundRender();renderCommunicationUI();}
+    else updateCommunicationLivePartsOnly();
   };
   const errorHandler=function(err){STATE.fbConnected=false;STATE.fbErrorMsg=(err&&err.message)||String(err||'Communication sync error');};
   ref.on('value',handler,errorHandler);communicationBinding={ref:ref,handler:handler};
@@ -3175,7 +3221,14 @@ function communicationMessageHtml(msg){
   const mine=STATE.me.station==='COMMANDER'?msg.senderRole==='COMMANDER':STATE.me.station==='GM'?false:(msg.senderRole==='HEAD'&&msg.by===STATE.me.name);
   const kindLabel=msg.kind==='urgent'?'เหตุเร่งด่วน':msg.kind==='request'?'คำขอ':'';
   const time=new Date(Number(msg.at)||Date.now()).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
-  return '<div class="comm-message '+(mine?'mine ':'')+esc(msg.kind||'normal')+'"><div class="comm-message-meta"><span>'+esc(msg.senderRole==='COMMANDER'?'Commander':('🚩 '+msg.by))+(kindLabel?' · <span class="comm-kind">'+kindLabel+'</span>':'')+'</span><span>'+time+'</span></div><div>'+esc(msg.text)+'</div></div>';
+  let action='';const meta=msg.meta||{};
+  if(STATE.me.station==='COMMANDER'&&msg.senderRole==='HEAD'&&meta.action==='REQUEST_MOVE'&&meta.player&&meta.targetZone){
+    const targetZone=meta.targetZone,targetStation=targetZone==='LOADING_PARKING'?'LOADING':targetZone,entry=STATE.roster&&STATE.roster[meta.player],currentZone=communicationZoneForStation(entry&&entry.station);
+    action=currentZone===targetZone
+      ?'<div class="comm-move-done">✓ '+esc(meta.player)+' อยู่ที่ '+esc(communicationZoneLabel(targetZone))+' แล้ว</div>'
+      :'<button class="btn sm primary comm-message-action" data-comm-act="approveMoveRequest" data-player="'+esc(meta.player)+'" data-target-zone="'+esc(targetZone)+'" data-target-station="'+esc(targetStation)+'" data-channel="'+esc(msg.zone||'')+'">ย้ายทันที → '+esc(communicationZoneLabel(targetZone))+'</button>';
+  }
+  return '<div class="comm-message '+(mine?'mine ':'')+esc(msg.kind||'normal')+'"><div class="comm-message-meta"><span>'+esc(msg.senderRole==='COMMANDER'?'Commander':('🚩 '+msg.by))+(kindLabel?' · <span class="comm-kind">'+kindLabel+'</span>':'')+'</span><span>'+time+'</span></div><div>'+esc(msg.text)+'</div>'+action+'</div>';
 }
 function communicationMemberOptions(zone,excludeName){
   return communicationMembers(zone).filter(function(n){return n!==excludeName;}).map(function(n){return '<option value="'+esc(n)+'">'+esc(n)+'</option>';}).join('');
@@ -3213,29 +3266,78 @@ function communicationThreadHtml(zone){
 function communicationZoneListHtml(activeZone){
   return '<div class="comm-zone-list">'+communicationZones().map(function(zone){const unread=communicationUnreadState(zone),head=communicationEffectiveHead(zone),last=communicationMessagesForZone(zone).slice(-1)[0];return '<button class="comm-zone-tab '+(zone===activeZone?'active':'')+'" data-comm-act="openZoneChat" data-zone="'+esc(zone)+'"><b>'+esc(communicationZoneLabel(zone))+'</b><small>'+(last?esc(last.text):head?'Head: '+esc(head.name):'ยังไม่มีข้อความ')+'</small>'+communicationUnreadBadge(unread)+'</button>';}).join('')+'</div>';
 }
-function renderCommunicationUI(){
+let communicationStructureSnapshot='';
+function communicationUiEligible(){
+  return !!(STATE.ready&&STATE.me.name&&STATE.me.station&&(STATE.me.station==='GM'||STATE.me.station==='COMMANDER'||communicationZoneForStation(STATE.me.station))&&!(STATE.gc.status==='ENDED'&&STATE.gc.debriefActive));
+}
+function communicationActiveZone(){
+  const ui=STATE.ui.communication;let active=ui.activeZone;
+  if(STATE.me.station!=='GM'&&STATE.me.station!=='COMMANDER')active=communicationZoneForStation(STATE.me.station);
+  else if(communicationZones().indexOf(active)<0)active=communicationZones()[0]||null;
+  ui.activeZone=active;return active;
+}
+function communicationStructureSignature(eligible,active){
+  const ui=STATE.ui.communication,zones=communicationZones();
+  const membership=zones.map(function(zone){return zone+':'+communicationMembers(zone).join(',');}).join('|');
+  const resourceNames=(STATE.resources||[]).map(function(r){return r.item;}).join('|');
+  return JSON.stringify([!!eligible,!!ui.open,active,STATE.me.name,STATE.me.station,ui.composerMode||'',ui.notice||'',transportCombined()?'COMBINED':'SPLIT',communicationHeadsSignature(STATE.communications),membership,resourceNames]);
+}
+function communicationMessageSignature(zone){
+  return JSON.stringify(communicationMessagesForZone(zone).map(function(msg){
+    const meta=msg.meta||{},moveStation=meta.action==='REQUEST_MOVE'&&meta.player&&STATE.roster&&STATE.roster[meta.player]?communicationZoneForStation(STATE.roster[meta.player].station):'';
+    return [msg.id,msg.at,msg.kind,msg.by,msg.senderRole,msg.text,msg.meta||null,moveStation];
+  }));
+}
+function updateCommunicationLaunchOnly(){
+  const launch=document.querySelector('#communicationHost .comm-launch');if(!launch)return;
+  launch.querySelectorAll('.comm-unread,.comm-signal').forEach(function(el){el.remove();});
+  const total=communicationTotalUnread();
+  if(total.count)launch.insertAdjacentHTML('beforeend',communicationUnreadBadge(total)+(total.kind!=='normal'?'<span class="comm-signal '+(total.kind==='urgent'?'urgent':'')+'"></span>':''));
+}
+function updateCommunicationLivePartsOnly(){
+  const host=document.getElementById('communicationHost');
+  if(!host||!communicationUiEligible()||!host.innerHTML){renderCommunicationUI(true);return;}
+  const ui=STATE.ui.communication,active=communicationActiveZone();
+  if(ui.open)markCommunicationRead(active);
+  updateCommanderCommunicationBadgesOnly();updateCommunicationLaunchOnly();
+  host.querySelectorAll('.comm-zone-tab[data-zone]').forEach(function(button){
+    const zone=button.dataset.zone,old=button.querySelector('.comm-unread');if(old)old.remove();
+    const unread=communicationUnreadState(zone);if(unread.count)button.insertAdjacentHTML('beforeend',communicationUnreadBadge(unread));
+    const small=button.querySelector('small'),last=communicationMessagesForZone(zone).slice(-1)[0],head=communicationEffectiveHead(zone);
+    if(small)small.textContent=last?last.text:head?'Head: '+head.name:'ยังไม่มีข้อความ';
+  });
+  const messages=host.querySelector('#commMessages');
+  if(messages&&active){
+    const signature=communicationMessageSignature(active);
+    if(messages.dataset.signature!==signature){
+      const nearBottom=messages.scrollHeight-messages.scrollTop-messages.clientHeight<70,list=communicationMessagesForZone(active);
+      messages.innerHTML=list.length?list.map(communicationMessageHtml).join(''):'<div class="comm-empty">ยังไม่มีข้อความในห้องนี้</div>';
+      messages.dataset.signature=signature;if(nearBottom)messages.scrollTop=messages.scrollHeight;
+    }
+  }
+}
+function renderCommunicationUI(force){
   const host=document.getElementById('communicationHost');if(!host)return;
-  const eligible=STATE.ready&&STATE.me.name&&STATE.me.station&&(STATE.me.station==='GM'||STATE.me.station==='COMMANDER'||!!communicationZoneForStation(STATE.me.station))&&!(STATE.gc.status==='ENDED'&&STATE.gc.debriefActive);
-  if(!eligible){host.classList.add('hidden');host.innerHTML='';document.body.classList.remove('comm-open');return;}
+  const eligible=communicationUiEligible();
+  if(!eligible){host.classList.add('hidden');host.innerHTML='';communicationStructureSnapshot='';document.body.classList.remove('comm-open');return;}
   host.classList.remove('hidden');
+  const ui=STATE.ui.communication,open=!!ui.open,active=communicationActiveZone(),structure=communicationStructureSignature(eligible,active);
+  if(!force&&host.innerHTML&&structure===communicationStructureSnapshot){updateCommunicationLivePartsOnly();document.body.classList.toggle('comm-open',open);return;}
   const preserved={};host.querySelectorAll('input[id],select[id]').forEach(function(el){preserved[el.id]=el.value;});
   const focused=document.activeElement&&host.contains(document.activeElement)?document.activeElement.id:null;
   const oldMessages=host.querySelector('#commMessages'),nearBottom=!oldMessages||oldMessages.scrollHeight-oldMessages.scrollTop-oldMessages.clientHeight<70;
-  const ui=STATE.ui.communication,open=!!ui.open,total=communicationTotalUnread();
-  let active=ui.activeZone;
-  if(STATE.me.station!=='GM'&&STATE.me.station!=='COMMANDER')active=communicationZoneForStation(STATE.me.station);
-  else if(communicationZones().indexOf(active)<0)active=communicationZones()[0]||null;
-  ui.activeZone=active;if(open)markCommunicationRead(active);updateCommanderCommunicationBadgesOnly();
+  if(open)markCommunicationRead(active);
+  const total=communicationTotalUnread();updateCommanderCommunicationBadgesOnly();
   const launch='<button class="comm-launch" data-comm-act="toggleChat"><span>📻</span><span>COMMAND</span>'+communicationUnreadBadge(total)+(total.count&&total.kind!=='normal'?'<span class="comm-signal '+(total.kind==='urgent'?'urgent':'')+'"></span>':'')+'</button>';
   let panel='';
   if(open){
     const multi=STATE.me.station==='GM'||STATE.me.station==='COMMANDER',viewClass=STATE.me.station==='GM'?'monitor-view':STATE.me.station==='COMMANDER'?'command-view':'';
     panel='<div class="comm-panel '+viewClass+'"><div class="comm-head"><div><div class="comm-head-title">'+(STATE.me.station==='GM'?'GM · RADIO MONITOR':STATE.me.station==='COMMANDER'?'COMMANDER RADIO':'ZONE COMMAND RADIO')+'</div><div class="comm-head-sub">ข้อความปกติไม่เด้งกลางหน้าจอ · คำขอมีเสียงสั้นเพียงครั้งเดียว</div></div><button class="comm-close" data-comm-act="closeChat">✕</button></div>'+(ui.notice?'<div class="comm-notice">'+esc(ui.notice)+'</div>':'')+(multi?'<div class="comm-layout">'+communicationZoneListHtml(active)+communicationThreadHtml(active)+'</div>':communicationThreadHtml(active))+'</div>';
   }
-  host.innerHTML=launch+panel;document.body.classList.toggle('comm-open',open);
+  host.innerHTML=launch+panel;communicationStructureSnapshot=structure;document.body.classList.toggle('comm-open',open);
   Object.keys(preserved).forEach(function(id){const el=document.getElementById(id);if(el)el.value=preserved[id];});
   if(focused){const el=document.getElementById(focused);if(el)el.focus();}
-  const messages=document.getElementById('commMessages');if(messages&&nearBottom)messages.scrollTop=messages.scrollHeight;
+  const messages=document.getElementById('commMessages');if(messages){messages.dataset.signature=communicationMessageSignature(active);if(nearBottom)messages.scrollTop=messages.scrollHeight;}
 }
 function headZoneControlHtml(){
   const zone=communicationZoneForStation(STATE.me.station);if(!zone||STATE.gc.status==='ENDED')return '';
@@ -3257,6 +3359,19 @@ async function handleCommunicationAction(el){
   if(act==='quickStatus'){await sendCommunicationMessage(ui.activeZone,communicationZoneStatusText(ui.activeZone),'normal',{action:'STATUS'});return;}
   if(act==='quickFun'){ui.composerMode=ui.composerMode==='fun'?null:'fun';renderCommunicationUI();return;}
   if(act==='quickCommander'){const urgent=el.dataset.text==='เร่งเคลียร์ Zone';await sendCommunicationMessage(ui.activeZone,el.dataset.text,urgent?'urgent':'normal',{action:'QUICK_REPLY'});return;}
+  if(act==='approveMoveRequest'){
+    if(STATE.me.station!=='COMMANDER')return;
+    const player=el.dataset.player,targetZone=el.dataset.targetZone,targetStation=el.dataset.targetStation||(targetZone==='LOADING_PARKING'?'LOADING':targetZone),channel=el.dataset.channel||ui.activeZone;
+    if(!player||!targetZone||!STATE.roster[player])return communicationNotice('ไม่พบ Player ในคำขอนี้');
+    if(communicationZones().indexOf(targetZone)<0)return communicationNotice('Zone ปลายทางไม่ตรงกับโหมดเกมปัจจุบัน');
+    el.disabled=true;el.textContent='กำลังย้าย…';
+    const moved=await gmAssignStation(player,targetStation);
+    if(moved){
+      await sendCommunicationMessage(channel,'อนุมัติและย้าย '+player+' ไป '+communicationZoneLabel(targetZone)+' แล้ว','normal',{action:'MOVE_APPROVED',player:player,targetZone:targetZone});
+      updateCommunicationLivePartsOnly();
+    }else communicationNotice('ย้าย '+player+' ไม่สำเร็จ กรุณาลองอีกครั้ง');
+    return;
+  }
   if(act==='sendText'){await sendCommunicationMessage(ui.activeZone,(document.getElementById('commTextInput')||{}).value,el.dataset.kind||'normal');return;}
   if(act==='submitStructured'){
     const mode=el.dataset.mode;
@@ -3493,6 +3608,7 @@ function startPolling(){
     if(STATE.gc.status==='RUNNING'){
       updateLiveTimersOnly();
       updateTreatmentCountdownsOnly();
+      updateFleetStatusOnly();
       updateExpiredLockVisualsOnly();
       updateSceneViewerPanel();
       if(Date.now()-lastCommunicationLifecycleCheck>=5000){lastCommunicationLifecycleCheck=Date.now();if(communicationHeadMaintenanceNeeded())scheduleCommunicationHeadMaintenance(50);}
@@ -3553,7 +3669,7 @@ async function gmAssignStation(name, stationId){
     }
     return root;
   });
-  if(!result.committed){STATE.roster=previousRoster;applyRosterIdentity();toast('อัปเดตหน้าที่ไม่สำเร็จ','err');return;}
+  if(!result.committed){STATE.roster=previousRoster;applyRosterIdentity();toast('อัปเดตหน้าที่ไม่สำเร็จ','err');return false;}
   if(result.root&&result.root[KEYS.roster])STATE.roster=result.root[KEYS.roster];
   if(result.root&&result.root[KEYS.patients])STATE.patients=result.root[KEYS.patients];
   if(result.root&&result.root[KEYS.resources])STATE.resources=result.root[KEYS.resources];
@@ -3562,6 +3678,7 @@ async function gmAssignStation(name, stationId){
   if(STATE.me.name===name)saveLocalSession();
   scheduleCommunicationHeadMaintenance(50);
   toast('อัปเดตหน้าที่ของ '+name+(refunded.length?' · ยกเลิก Treatment และคืน stock '+refunded.length+' รายการ':''), 'ok');
+  return true;
 }
 async function gmRemovePlayer(name){
   const elapsed=elapsedMinutes(STATE.gc);
@@ -5061,7 +5178,7 @@ function viewTransfer(){
   const selectedHospitalOptions=hospitalOptions.replace('value="'+esc(transferUi.hospital||'###')+'"','value="'+esc(transferUi.hospital||'###')+'" selected');
   const canSend=!!selectedVehicle&&selectedPatients.length>0&&!!transferUi.hospital&&load.ok;
   const requestLevel=transportCombined()?'PARKING_TO_COMMAND':'LOADING_TO_PARKING',loadingReqs=pendingVehicleRequests(requestLevel);
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TRANSPORT OPERATIONS</div><h1>'+stationHeading('transfer',transportCombined()?'Loading + Parking':'Loading Area')+'</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+vehicleCapacityRulesHtml()
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TRANSPORT OPERATIONS</div><h1>'+stationHeading('transfer',transportCombined()?'Loading + Parking':'Loading Area')+'</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+vehicleCapacityRulesHtml()+(transportCombined()?vehicleFleetStatusHtml(elapsed):'')
     +'<div class="transfer-workflow">'
       +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">1</span>'+(transportCombined()?'ขอรถจาก Command / GM':'ขอรถจาก Parking')+' <span class="badge neutral">ที่ Loading '+availableVehicles.length+' คัน</span></div>'
         +vehicleRequestControls(requestLevel,transportCombined()?'โหมด Extern: Loading ขอรถจาก Command / GM โดยตรง':'ส่งคำขอไปยังผู้เล่น Parking')
@@ -5085,6 +5202,7 @@ function viewParking(){
   const incomingTiles=incoming.map(function(v){return '<div class="transfer-return-card '+dashboardVehicleType(v)+'"><span class="parking-vehicle-label">'+esc(v.name)+'</span><div class="vehicle-visual '+dashboardVehicleType(v)+'">'+vehicleGraphicSvg(dashboardVehicleType(v))+'</div><div class="transfer-return-phase">จาก '+esc(v.originHospital||'โรงพยาบาล')+'</div><div class="transfer-return-time">'+liveCountdownHtml(v.busyUntilElapsed,elapsed,'ถึง Parking','ถึงใน ')+'</div></div>';}).join('');
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">VEHICLE STAGING</div><h1>'+stationHeading('transfer','Parking Control')+'</h1></div><span class="badge neutral">พร้อมใช้ '+parked.length+' คัน</span></div>'
     +vehicleCapacityRulesHtml()
+    +vehicleFleetStatusHtml(elapsed)
     +(incoming.length?'<div class="card" style="border-color:rgba(96,165,250,.45)"><div class="transfer-row-head"><b>🚨 รถที่กำลังมาถึง Parking</b><span class="badge wait">'+incoming.length+' คัน</span></div><div class="hint" style="margin-bottom:10px">แสดงชื่อรถ โรงพยาบาลต้นทาง และเวลาคงเหลือแบบนับถอยหลัง</div><div class="transfer-return-grid">'+incomingTiles+'</div></div>':'')
     +'<div class="grid cols-2"><div><div class="card"><h3>คำขอจาก Loading</h3><div class="hint" style="margin-bottom:10px">เลือกรถที่ตรงประเภทแล้วส่งไป Loading</div>'+(requestRows||'<div class="zone-empty">ยังไม่มีคำขอจาก Loading</div>')+'</div></div>'
     +'<div><div class="card"><h3>ขอรถเพิ่มจาก Command / GM</h3>'+vehicleRequestControls('PARKING_TO_COMMAND','ระบุจำนวนรถที่ Parking ต้องการ')+(commandReqs.length?'<div class="hint" style="margin-top:10px;color:var(--yellow)">รอ Command: '+commandReqs.map(function(r){return r.type+' '+vehicleRequestRemaining(r)+' คัน';}).join(', ')+'</div>':'')+'</div></div></div>'

@@ -598,7 +598,8 @@ body::before{
 .mission-shell.station-TX_RED{--station-accent:#FF5A61;--station-glow:rgba(239,68,68,.12);}
 .mission-shell.station-TX_YELLOW{--station-accent:#F6C344;--station-glow:rgba(234,179,8,.11);}
 .mission-shell.station-TX_GREEN{--station-accent:#4ADE80;--station-glow:rgba(34,197,94,.10);}
-.mission-shell.station-TRANSFER,.mission-shell.station-DISPATCH{--station-accent:#60A5FA;--station-glow:rgba(59,130,246,.11);}
+.mission-shell.station-LOADING{--station-accent:#60A5FA;--station-glow:rgba(59,130,246,.11);}
+.mission-shell.station-PARKING{--station-accent:#FBBF24;--station-glow:rgba(251,191,36,.10);}
 .mission-shell.station-DISCHARGE{--station-accent:#94A3B8;--station-glow:rgba(148,163,184,.08);}
 
 /* Command header */
@@ -683,7 +684,7 @@ input[type=text],input[type=password],input[type=number],select,textarea{backgro
 .pixel-human .patient-bed{fill:#9CADBD;}
 .pixel-human .patient-wheel{fill:#263340;}
 .pixel-human.BLACK svg{filter:grayscale(1) brightness(.68);}
-.pixel-patient,.anonymous-person{animation:patientArrive .28s cubic-bezier(.2,.8,.2,1) both;}
+.pixel-patient,.anonymous-person{animation:none;}
 @keyframes patientArrive{from{opacity:0;transform:translateY(7px) scale(.97)}to{opacity:1;transform:none}}
 .patient-focus-avatar{width:72px;height:72px;display:grid;place-items:center;flex:0 0 auto;border:1px solid color-mix(in srgb,var(--pc) 58%,var(--line));border-radius:14px;background:linear-gradient(145deg,color-mix(in srgb,var(--pc) 15%,var(--bg-panel-2)),var(--bg));box-shadow:inset 0 -4px var(--pc),0 10px 22px rgba(0,0,0,.23);}
 .patient-focus-avatar svg{width:57px;height:57px;}
@@ -720,6 +721,7 @@ input[type=text],input[type=password],input[type=number],select,textarea{backgro
   repeating-linear-gradient(90deg,transparent 0 118px,rgba(127,151,174,.055) 119px 120px),var(--bg-panel-2);}
 .transfer-staging::after{content:"DISPATCH LANE  →";position:absolute;right:22px;bottom:10px;font:800 9px/1 var(--font-mono);letter-spacing:.18em;color:rgba(132,170,202,.18);pointer-events:none;}
 .vehicle-art{transition:transform .22s ease;}
+.vehicle-rulebar{overflow:hidden}.vehicle-rulebar>.flexrow{gap:8px}.vehicle-rule-item{flex:1;min-width:170px;padding:7px 10px!important;border:1px solid var(--line-soft);border-radius:8px;background:rgba(7,12,18,.34)}.vehicle-rule-icon{width:46px;height:26px;display:grid;place-items:center;flex:0 0 46px}.vehicle-rule-icon svg{display:block!important;width:44px!important;height:24px!important;max-width:44px!important;max-height:24px!important}.vehicle-rule-icon.ALS .vehicle-body{fill:#d64b55}.vehicle-rule-icon.BLS .vehicle-body{fill:#e1ae35}.vehicle-rule-icon.BUS .vehicle-body{fill:#36a46a}.vehicle-rule-icon .vehicle-panel{opacity:.85}.vehicle-rule-item .rule-copy{font-size:11px;color:var(--ink-dim);white-space:nowrap}
 .transfer-vehicle-choice:hover .vehicle-art{transform:translateY(-2px);}
 .vehicle-siren-left,.vehicle-siren-right{opacity:.48;}
 .transfer-staging-vehicle .vehicle-siren-left,.vehicle-tile:has(.vehicle-passengers) .vehicle-siren-left{animation:sirenRed 1.05s steps(1,end) infinite;}
@@ -758,7 +760,7 @@ input[type=text],input[type=password],input[type=number],select,textarea{backgro
 @media(max-width:800px){.treatment-workspace{grid-template-columns:1fr}.treatment-overview{position:static}.personal-score-grid{grid-template-columns:1fr}.treatment-actions{grid-template-columns:1fr}}
 
 /* Lightweight entrance motion */
-.card,.transfer-step,.zone-box,.patient-card{animation:surfaceIn .24s ease-out both;}
+.card,.transfer-step,.zone-box,.patient-card{animation:none;}
 @keyframes surfaceIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
 @media (max-width:900px){
@@ -1758,12 +1760,12 @@ const DEFAULT_CASES = [{"id": 7, "canWalk": "no", "reqTx": ["IV fluid"], "timeLi
 
 const DEFAULT_RESOURCES = [
   {item:'OPA/NPA', stock:5, durationSec:5, triageAllowed:true},
-  {item:'O2 mask c bag', stock:10, durationSec:5, triageAllowed:true},
+  {item:'O2 mask c bag', stock:10, durationSec:5, triageAllowed:false},
   {item:'ETT', stock:3, durationSec:90, triageAllowed:false},
   {item:'IV fluid', stock:10, durationSec:60, triageAllowed:false},
   {item:'Needle decompression', stock:2, durationSec:30, triageAllowed:false},
   {item:'3-side dressing', stock:5, durationSec:20, triageAllowed:false},
-  {item:'Tourniquet', stock:5, durationSec:30, triageAllowed:true},
+  {item:'Tourniquet', stock:5, durationSec:30, triageAllowed:false},
   {item:'Dressing wound', stock:10, durationSec:60, triageAllowed:false},
   {item:'Splint', stock:10, durationSec:60, triageAllowed:false},
   {item:'spinal board + collar', stock:4, durationSec:60, triageAllowed:false}
@@ -1777,9 +1779,9 @@ const DEFAULT_HOSPITALS = [
 
 const DEFAULT_VEHICLES = [
   {name:'ALS_1',type:'ALS'},{name:'ALS_2',type:'ALS'}
-].map(function(v){ return Object.assign({busyUntilElapsed:0, busyHospital:null}, v); });
+].map(function(v){ return Object.assign({busyUntilElapsed:0, busyHospital:null,deploymentState:'RESERVE',originHospital:null}, v); });
 
-const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, startedBy:null, endedElapsed:null, endedBy:null, debriefActive:false, debriefStartedAt:null, debriefStartedBy:null, maxGameMin:60, fastTreatment:false, allowHospitalTreatment:false, capacity:{RED:2,YELLOW:2,GREEN:2}, transitSpeeds:{walkKmh:4, carryKmh:3}, mapSettings:{useMap:true, distSecondary:true, distTreatment:true, distTransfer:true}};
+const DEFAULT_GC = {status:'NOT_STARTED', startTime:null, startedBy:null, endedElapsed:null, endedBy:null, debriefActive:false, debriefStartedAt:null, debriefStartedBy:null, vehicleRequests:[],operationsLog:[],resourceBaseline:null,transportMode:'SPLIT',maxGameMin:60, fastTreatment:false, allowHospitalTreatment:false, capacity:{RED:2,YELLOW:2,GREEN:2}, transitSpeeds:{walkKmh:4, carryKmh:3}, mapSettings:{useMap:true, distSecondary:true, distTreatment:true, distTransfer:true}};
 
 /* Scene Setup (pre-triage map phase) — published:false + skipped:false blocks
    game start until GM either publishes a scene or explicitly skips it. */
@@ -1793,11 +1795,16 @@ const STATIONS = [
   {id:'TX_RED', label:'Treatment · RED', icon:'🔴'},
   {id:'TX_YELLOW', label:'Treatment · YELLOW', icon:'🟡'},
   {id:'TX_GREEN', label:'Treatment · GREEN', icon:'🟢'},
-  {id:'TRANSFER', label:'Transfer Desk', icon:'🚑'},
+  {id:'LOADING', label:'Loading · จัดผู้ป่วยขึ้นรถ', icon:'🚑'},
+  {id:'PARKING', label:'Parking · จัดสรรรถ', icon:'🅿️'},
   {id:'DISCHARGE', label:'Discharge Log', icon:'📋'}
 ];
 const STATION_LABEL = {};
 STATIONS.forEach(function(s){ STATION_LABEL[s.id]=s.label; });
+function stationLabel(id){
+  if((id==='LOADING'||id==='PARKING')&&transportCombined())return 'Loading + Parking · จัดรถและผู้ป่วย';
+  return STATION_LABEL[id]||id;
+}
 const TX_ZONES = ['RED','YELLOW','GREEN'];
 const TRIAGE_COLORS = ['RED','YELLOW','GREEN','BLACK'];
 const TX_SLOT_COUNT = 6;
@@ -2438,6 +2445,53 @@ function requiredVehicleFor(caseObj){
 function vehicleEffectiveStatus(v, elapsed){
   return (v.busyUntilElapsed && elapsed < v.busyUntilElapsed) ? 'BUSY' : 'AVAILABLE';
 }
+function vehicleDeploymentState(v,elapsed){
+  const state=v.deploymentState||'RESERVE';
+  if(state==='TO_PARKING'&&Number(v.busyUntilElapsed||0)<=elapsed)return 'PARKING';
+  if(state==='HOSPITAL_TRIP'&&Number(v.busyUntilElapsed||0)<=elapsed)return transportCombined()?'LOADING':'PARKING';
+  if(state==='TO_LOADING'&&Number(v.busyUntilElapsed||0)<=elapsed)return 'LOADING';
+  return state;
+}
+function sceneVehicleLeg(fromType,toType){
+  const a=sceneTent(fromType),b=sceneTent(toType);
+  if(!a||!b)return {minutes:0,path:[]};
+  return {minutes:(haversineKm(a.lat,a.lng,b.lat,b.lng)/20)*60,path:[{lat:a.lat,lng:a.lng},{lat:b.lat,lng:b.lng}]};
+}
+function vehicleRequests(){return (STATE.gc&&STATE.gc.vehicleRequests)||[];}
+function pendingVehicleRequests(level){return vehicleRequests().filter(function(r){return r.level===level&&r.status==='PENDING';});}
+function transportCombined(){return ((STATE.gc&&STATE.gc.transportMode)||'SPLIT')==='COMBINED';}
+function vehicleRequestRemaining(r){return Math.max(0,Number(r.quantity||1)-Number(r.fulfilledCount||0));}
+async function createVehicleRequest(level,type,quantity){
+  const elapsed=elapsedMinutes(STATE.gc),by=STATE.me.name||'';type=normU(type);
+  quantity=Math.max(1,Math.min(99,Math.floor(Number(quantity)||1)));const id='VR_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);
+  const result=await kvRootTransaction(function(root){const gc=Object.assign({},root[KEYS.gc]||STATE.gc),requests=(gc.vehicleRequests||[]).slice(),existing=requests.find(function(r){return r.level===level&&r.type===type&&r.status==='PENDING';});if(existing){gc.vehicleRequests=requests.map(function(r){return r.id===existing.id?Object.assign({},r,{quantity:Number(r.quantity||1)+quantity}):r;});}else{requests.push({id:id,level:level,type:type,quantity:quantity,fulfilledCount:0,status:'PENDING',requestedAt:elapsed,requestedBy:by});gc.vehicleRequests=requests;}gc.operationsLog=(gc.operationsLog||[]).concat([{t:elapsed,type:'VEHICLE_REQUEST '+level+' '+type+' x'+quantity,by:by}]);root[KEYS.gc]=gc;return root;});
+  if(!result.committed){toast('ส่งคำขอไม่สำเร็จ','err');return;}toast('ส่งคำขอรถ '+type+' '+quantity+' คันแล้ว','ok');
+}
+async function parkingSendToLoading(vehicleName,requestId){
+  const elapsed=elapsedMinutes(STATE.gc),leg=sceneVehicleLeg('parking','loading'),by=STATE.me.name||'';
+  let fail='';
+  const result=await kvRootTransaction(function(root){
+    const vehicles=root[KEYS.vehicles]||[],target=vehicles.find(function(v){return v.name===vehicleName;}),gc=Object.assign({},root[KEYS.gc]||STATE.gc),request=(gc.vehicleRequests||[]).find(function(r){return r.id===requestId&&r.status==='PENDING';});
+    if(!request){fail='คำขอนี้ถูกดำเนินการแล้ว';return null;}if(!target||vehicleDeploymentState(target,elapsed)!=='PARKING'||normU(target.type)!==request.type){fail='รถไม่พร้อมหรือประเภทไม่ตรงคำขอ';return null;}
+    const nextCount=Number(request.fulfilledCount||0)+1,done=nextCount>=Number(request.quantity||1);
+    const reqs=(gc.vehicleRequests||[]).map(function(r){return r.id===requestId?Object.assign({},r,{status:done?'FULFILLED':'PENDING',fulfilledCount:nextCount,fulfilledAt:done?elapsed:null,lastFulfilledAt:elapsed,fulfilledBy:by,vehicles:(r.vehicles||[]).concat([vehicleName])}):r;});
+    gc.vehicleRequests=reqs;gc.operationsLog=(gc.operationsLog||[]).concat([{t:elapsed,type:'PARKING_SEND_LOADING '+vehicleName,by:by}]);root[KEYS.gc]=gc;
+    root[KEYS.vehicles]=(root[KEYS.vehicles]||[]).map(function(v){return v.name===vehicleName?Object.assign({},v,{deploymentState:'TO_LOADING',busyStartElapsed:elapsed,busyUntilElapsed:elapsed+leg.minutes,outboundMin:leg.minutes,returnMin:0,outboundPath:leg.path,returnPath:[]}):v;});return root;
+  });if(result.committed){toast('ส่ง '+vehicleName+' ไป Loading แล้ว','ok');}else toast(fail||'ส่งรถไม่สำเร็จ','err');
+}
+async function commandSendVehicleToParking(requestId,vehicleName,hospitalName){
+  const elapsed=elapsedMinutes(STATE.gc),by=STATE.me.name||'',route=sceneRouteTravelTimes(hospitalName),hospital=STATE.hospitals.find(function(h){return h.name===hospitalName;});
+  let minutes=route?Number(route.returnMin||0):Number(hospital&&(hospital.returnMin!=null?hospital.returnMin:hospital.distanceMin)||0),path=route?(route.returnPath||[]):[];
+  const directLoading=transportCombined(),destination=directLoading?'loading':'parking',destinationTent=sceneTent(destination),hospTent=(STATE.scene&&STATE.scene.data&&STATE.scene.data.tents||[]).find(function(t){return t.typeId==='hospital'&&(t.name===hospitalName||t.linkedHospitalName===hospitalName);});
+  if(destinationTent&&hospTent){minutes=(haversineKm(hospTent.lat,hospTent.lng,destinationTent.lat,destinationTent.lng)/AMBULANCE_FALLBACK_KMH)*60;path=[{lat:hospTent.lat,lng:hospTent.lng},{lat:destinationTent.lat,lng:destinationTent.lng}];}
+  let fail='';const result=await kvRootTransaction(function(root){const gc=Object.assign({},root[KEYS.gc]||STATE.gc),vehicles=root[KEYS.vehicles]||[],request=(gc.vehicleRequests||[]).find(function(r){return r.id===requestId&&r.status==='PENDING';}),target=vehicles.find(function(v){return v.name===vehicleName;});if(!request){fail='คำขอนี้ถูกดำเนินการแล้ว';return null;}if(!target||vehicleDeploymentState(target,elapsed)!=='RESERVE'||normU(target.type)!==request.type){fail='รถสำรองไม่พร้อมหรือประเภทไม่ตรงคำขอ';return null;}const nextCount=Number(request.fulfilledCount||0)+1,done=nextCount>=Number(request.quantity||1);gc.vehicleRequests=(gc.vehicleRequests||[]).map(function(r){return r.id===requestId?Object.assign({},r,{status:done?'FULFILLED':'PENDING',fulfilledCount:nextCount,fulfilledAt:done?elapsed:null,lastFulfilledAt:elapsed,fulfilledBy:by,vehicles:(r.vehicles||[]).concat([vehicleName]),hospital:hospitalName}):r;});gc.operationsLog=(gc.operationsLog||[]).concat([{t:elapsed,type:'COMMAND_SEND_'+(directLoading?'LOADING ':'PARKING ')+vehicleName+' FROM '+hospitalName,by:by}]);root[KEYS.gc]=gc;root[KEYS.vehicles]=vehicles.map(function(v){return v.name===vehicleName?Object.assign({},v,{deploymentState:directLoading?'TO_LOADING':'TO_PARKING',originHospital:hospitalName,busyHospital:hospitalName,busyStartElapsed:elapsed,busyUntilElapsed:elapsed+minutes,outboundMin:minutes,returnMin:0,outboundPath:path,returnPath:[]}):v;});return root;});
+  if(result.committed){if(result.root&&result.root[KEYS.gc])STATE.gc=result.root[KEYS.gc];if(result.root&&result.root[KEYS.vehicles])STATE.vehicles=result.root[KEYS.vehicles];STATE._snapshot=null;toast('ส่ง '+vehicleName+' จาก '+hospitalName+' ไป '+(directLoading?'Loading + Parking':'Parking')+' แล้ว','ok');return true;}toast(fail||'ส่งรถไม่สำเร็จ','err');return false;
+}
+async function combinedMoveToLoading(vehicleName){
+  const elapsed=elapsedMinutes(STATE.gc),leg=sceneVehicleLeg('parking','loading'),by=STATE.me.name||'';let fail='';
+  const result=await kvRootTransaction(function(root){const vehicles=root[KEYS.vehicles]||[],target=vehicles.find(function(v){return v.name===vehicleName;});if(!target||vehicleDeploymentState(target,elapsed)!=='PARKING'){fail='รถไม่ได้พร้อมอยู่ที่ Parking';return null;}const gc=Object.assign({},root[KEYS.gc]||STATE.gc);gc.operationsLog=(gc.operationsLog||[]).concat([{t:elapsed,type:'PARKING_SEND_LOADING '+vehicleName,by:by}]);root[KEYS.gc]=gc;root[KEYS.vehicles]=vehicles.map(function(v){return v.name===vehicleName?Object.assign({},v,{deploymentState:'TO_LOADING',busyStartElapsed:elapsed,busyUntilElapsed:elapsed+leg.minutes,outboundMin:leg.minutes,returnMin:0,outboundPath:leg.path,returnPath:[]}):v;});return root;});
+  if(result.committed)toast('นำ '+vehicleName+' จาก Parking ไป Loading แล้ว','ok');else toast(fail||'นำรถมา Loading ไม่สำเร็จ','err');
+}
 function calcVehicleLoad(type, total, sitting, lying, hospitalCount){
   if(hospitalCount>1) return {ok:false,label:'ปลายทางไม่ตรงกัน (Mixed hospital)'};
   if(!total) return {ok:true,label:'ว่าง'};
@@ -2460,6 +2514,15 @@ function vehicleCapacityNote(type){
   if(type==='BUS') return 'นั่งได้สูงสุด 10 / รับผู้ป่วยนอนไม่ได้';
   if(type==='ALS'||type==='BLS') return 'นอนได้ 1 คน หรือ นั่งได้ 2 คน';
   return '';
+}
+function miniVehicleCapacityIcon(type){
+  const color=type==='ALS'?'#dc4c58':type==='BLS'?'#e1b23f':'#39a96b';
+  if(type==='BUS')return '<svg width="54" height="28" viewBox="0 0 54 28" role="img" aria-label="รถ BUS" style="display:block;flex:none"><rect x="2" y="4" width="49" height="18" rx="4" fill="'+color+'"/><rect x="7" y="7" width="32" height="7" rx="2" fill="#dce9ee"/><rect x="42" y="7" width="5" height="12" rx="1" fill="#edf5f7"/><circle cx="13" cy="23" r="4" fill="#17202a"/><circle cx="42" cy="23" r="4" fill="#17202a"/></svg>';
+  return '<svg width="54" height="28" viewBox="0 0 54 28" role="img" aria-label="รถพยาบาล '+type+'" style="display:block;flex:none"><path d="M3 8h30l6 7h10c2 0 3 2 3 4v4H3z" fill="'+color+'"/><path d="M35 10h7l5 5h-8z" fill="#dce9ee"/><rect x="12" y="10" width="12" height="3" rx="1" fill="#fff"/><rect x="16.5" y="6" width="3" height="11" rx="1" fill="#fff"/><circle cx="13" cy="23" r="4" fill="#17202a"/><circle cx="43" cy="23" r="4" fill="#17202a"/></svg>';
+}
+function vehicleCapacityRulesHtml(){
+  const rules=[{type:'ALS',copy:'นั่ง 2 คน หรือ นอน 1 คน'},{type:'BLS',copy:'นั่ง 2 คน หรือ นอน 1 คน'},{type:'BUS',copy:'นั่ง 10 คน · นอนไม่ได้'}];
+  return '<div class="card vehicle-rulebar" style="margin-bottom:14px;padding:9px 12px"><div class="flexrow" style="justify-content:center">'+rules.map(function(r){return '<div class="flexrow vehicle-rule-item" title="'+r.type+'"><span class="vehicle-rule-icon '+r.type+'">'+miniVehicleCapacityIcon(r.type)+'</span><span class="rule-copy">'+r.copy+'</span></div>';}).join('')+'</div></div>';
 }
 function maxOrder(patients, field){
   return patients.reduce(function(m,p){ return Math.max(m, p[field]||0); }, 0);
@@ -2498,7 +2561,8 @@ const STATE = {
   fbErrorMsg: null,
   ui:{
     focused:{PRIMARY:null,SECONDARY:null,TX_RED:null,TX_YELLOW:null,TX_GREEN:null},
-    transfer:{vehicle:null,patientIds:[],hospital:null}
+    transfer:{vehicle:null,patientIds:[],hospital:null},
+    commandRequests:{}
   },
   _snapshot:null
 };
@@ -2530,6 +2594,7 @@ function restoreLocalSession(){
       STATE.ui.transfer=Object.assign({},STATE.ui.transfer,saved.ui.transfer);
       if(!Array.isArray(STATE.ui.transfer.patientIds))STATE.ui.transfer.patientIds=[];
     }
+    if(saved.ui&&saved.ui.commandRequests)STATE.ui.commandRequests=Object.assign({},saved.ui.commandRequests);
     return true;
   }catch(e){return false;}
 }
@@ -2700,7 +2765,8 @@ function applyRosterIdentity(){
   let assignedStation=entry?entry.station:null;
   // Backward compatibility for a roster saved by v5. Vehicle Dispatch is now
   // part of Transfer, so an old DISPATCH assignment opens the Transfer screen.
-  if(assignedStation==='DISPATCH')assignedStation='TRANSFER';
+  if(assignedStation==='DISPATCH'||assignedStation==='TRANSFER')assignedStation='LOADING';
+  if(transportCombined()&&assignedStation==='PARKING')assignedStation='LOADING';
   STATE.me.station=assignedStation==='GM'&&!STATE.me.gmAuthorized?null:assignedStation;
 }
 
@@ -2716,6 +2782,9 @@ let realtimeBindings=[];
 let realtimeInitial={};
 let backgroundRenderTimer=null;
 let backgroundRenderPending=false;
+let actionPointerBusy=false;
+let vehicleAnimationBusy=false;
+let selectMenuBusy=false;
 let derivedBusy=false;
 
 function decodeRealtimeValue(raw,fallback){
@@ -2727,7 +2796,7 @@ function scheduleBackgroundRender(){
   backgroundRenderTimer=setTimeout(function(){
     backgroundRenderTimer=null;
     backgroundRender();
-  },80);
+  },16);
 }
 function startRealtimeListeners(session){
   if(!fbReady||realtimeBindings.length)return;
@@ -2739,7 +2808,7 @@ function startRealtimeListeners(session){
       if(session!==identitySession)return;
       STATE[stateKey]=decodeRealtimeValue(snap.val(),REALTIME_DEFAULTS[dbKey]);
       realtimeInitial[dbKey]=true;
-      if(dbKey==='roster')applyRosterIdentity();
+      if(dbKey==='roster'||dbKey==='gc')applyRosterIdentity();
       if(Object.keys(realtimeInitial).length===Object.keys(REALTIME_STATE_KEYS).length)STATE.ready=true;
       STATE.fbConnected=true;
       scheduleBackgroundRender();
@@ -2785,10 +2854,7 @@ async function runDerivedStateMaintenance(){
    renders triggered directly by the user's own click/change always run
    in full via render()/render(true) as before. */
 function backgroundRender(){
-  const ae = document.activeElement;
-  const interacting = ae && (ae.tagName==='SELECT' || ae.tagName==='TEXTAREA' ||
-    (ae.tagName==='INPUT' && (ae.type==='text' || ae.type==='number')));
-  if(interacting){
+  if(selectMenuBusy||actionPointerBusy||vehicleAnimationBusy){
     backgroundRenderPending=true;
     updateLiveTimersOnly();
     return;
@@ -2909,7 +2975,10 @@ async function joinAsPlayer(name, asGM, asCommander, gmPassword){
   startPolling();
 }
 async function gmAssignStation(name, stationId){
+  if(transportCombined()&&stationId==='PARKING')stationId='LOADING';
   const elapsed=elapsedMinutes(STATE.gc);
+  const previousRoster=STATE.roster,optimistic=Object.assign({},STATE.roster),current=optimistic[name]||{lastSeen:Date.now()};
+  optimistic[name]=Object.assign({},current,{station:stationId||null});STATE.roster=optimistic;if(STATE.me.name===name)STATE.me.station=stationId||null;STATE._snapshot=null;render(true);
   let refunded=[];
   const result=await kvRootTransaction(function(root){
     const roster=root[KEYS.roster]||{};
@@ -2926,12 +2995,14 @@ async function gmAssignStation(name, stationId){
     }
     return root;
   });
-  if(!result.committed){toast('อัปเดตหน้าที่ไม่สำเร็จ','err');return;}
-  await refreshAll();
+  if(!result.committed){STATE.roster=previousRoster;applyRosterIdentity();toast('อัปเดตหน้าที่ไม่สำเร็จ','err');return;}
+  if(result.root&&result.root[KEYS.roster])STATE.roster=result.root[KEYS.roster];
+  if(result.root&&result.root[KEYS.patients])STATE.patients=result.root[KEYS.patients];
+  if(result.root&&result.root[KEYS.resources])STATE.resources=result.root[KEYS.resources];
+  if(result.root&&result.root[KEYS.locks])STATE.locks=result.root[KEYS.locks];
   if(STATE.me.name===name) STATE.me.station = stationId||null;
   if(STATE.me.name===name)saveLocalSession();
   toast('อัปเดตหน้าที่ของ '+name+(refunded.length?' · ยกเลิก Treatment และคืน stock '+refunded.length+' รายการ':''), 'ok');
-  render();
 }
 async function gmRemovePlayer(name){
   const elapsed=elapsedMinutes(STATE.gc);
@@ -2961,7 +3032,7 @@ async function leaveCurrentPlayer(){
   STATE.me.station=null;
   STATE.me.gmAuthorized=false;
   STATE.me.clientId=null;
-  STATE.ui={focused:{PRIMARY:null,SECONDARY:null,TX_RED:null,TX_YELLOW:null,TX_GREEN:null},transfer:{vehicle:null,patientIds:[],hospital:null}};
+  STATE.ui={focused:{PRIMARY:null,SECONDARY:null,TX_RED:null,TX_YELLOW:null,TX_GREEN:null},transfer:{vehicle:null,patientIds:[],hospital:null},commandRequests:{}};
   clearLocalSession();
 
   if(leavingName){
@@ -2988,10 +3059,15 @@ function sceneReady(){
   if(!mapSettings().useMap) return true;
   return !!(STATE.scene && (STATE.scene.published || STATE.scene.skipped));
 }
+function resourceBaselineFromCurrent(list){
+  return (Array.isArray(list)?list:DEFAULT_RESOURCES).map(function(r){const d=DEFAULT_RESOURCES.find(function(x){return x.item===r.item;}),saved=Math.max(0,Number(r.stock)||0,Number(r.addedTotal)||0,d?Number(d.stock)||0:0);return Object.assign({},r,{stock:saved,triageAllowed:r.item==='OPA/NPA'});});
+}
 async function gmStartGame(){
   if(!sceneReady()){ toast('กรุณาเผยแพร่หรือข้ามขั้นตอน Scene Setup ก่อนเริ่มเกม','err'); return; }
-  const gc = Object.assign({}, STATE.gc, {status:'RUNNING', startTime:Date.now(), startedBy:STATE.me.name||'GM', endedElapsed:null, endedBy:null, debriefActive:false, debriefStartedAt:null, debriefStartedBy:null});
-  await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
+  const hadBaseline=Array.isArray(STATE.gc.resourceBaseline),startupBaseline=(hadBaseline?STATE.gc.resourceBaseline:resourceBaselineFromCurrent(STATE.resources)).map(function(r){return Object.assign({},r);});
+  const gc = Object.assign({}, STATE.gc, {status:'RUNNING', startTime:Date.now(), startedBy:STATE.me.name||'GM', endedElapsed:null, endedBy:null, debriefActive:false, debriefStartedAt:null, debriefStartedBy:null,vehicleRequests:[],operationsLog:[],resourceBaseline:startupBaseline});
+  const vehicles=STATE.vehicles.map(function(v){return Object.assign({},v,{deploymentState:'RESERVE',originHospital:null,busyUntilElapsed:0,busyHospital:null,busyStartElapsed:null,outboundMin:null,returnMin:null,outboundPath:null,returnPath:null});});
+  await kvSet(KEYS.gc, gc);await kvSet(KEYS.vehicles,vehicles);if(!hadBaseline){await kvSet(KEYS.resources,startupBaseline);STATE.resources=startupBaseline;}STATE.gc=gc;STATE.vehicles=vehicles;render();
   toast('เริ่มเกมแล้ว — แจกหน้าที่และเริ่มรับผู้ป่วยได้เลย','ok');
 }
 async function gmEndGame(){
@@ -3007,17 +3083,18 @@ async function gmStartDebrief(){
   toast('เริ่ม Debrief แล้ว — ผู้เล่นทุกคนถูกย้ายไป Timeline ส่วนตัว','ok');
 }
 async function gmResetGame(){
-  const gc = Object.assign({}, DEFAULT_GC, {capacity:Object.assign({},STATE.gc.capacity), maxGameMin:STATE.gc.maxGameMin, fastTreatment:!!STATE.gc.fastTreatment, allowHospitalTreatment:hospitalTreatmentEnabled(STATE.gc), transitSpeeds:Object.assign({},STATE.gc.transitSpeeds), mapSettings:Object.assign({},DEFAULT_GC.mapSettings,STATE.gc.mapSettings)});
+  const baseline=(Array.isArray(STATE.gc.resourceBaseline)?STATE.gc.resourceBaseline:resourceBaselineFromCurrent(STATE.resources)).map(function(r){return Object.assign({},r);});
+  const gc = Object.assign({}, DEFAULT_GC, {capacity:Object.assign({},STATE.gc.capacity), resourceBaseline:baseline.map(function(r){return Object.assign({},r);}),transportMode:STATE.gc.transportMode||'SPLIT',maxGameMin:STATE.gc.maxGameMin, fastTreatment:!!STATE.gc.fastTreatment, allowHospitalTreatment:hospitalTreatmentEnabled(STATE.gc), transitSpeeds:Object.assign({},STATE.gc.transitSpeeds), mapSettings:Object.assign({},DEFAULT_GC.mapSettings,STATE.gc.mapSettings)});
   await kvSet(KEYS.gc, gc);
   await kvSet(KEYS.patients, []);
   await kvSet(KEYS.locks, {});
-  const resources = DEFAULT_RESOURCES.map(function(r){ return Object.assign({}, r); });
+  const resources = baseline.map(function(r){ return Object.assign({}, r); });
   await kvSet(KEYS.resources, resources);
   const hospitals = DEFAULT_HOSPITALS.map(function(h){ return Object.assign({}, h); });
   await kvSet(KEYS.hospitals, hospitals);
   await kvSet(KEYS.scene, DEFAULT_SCENE);
   if(window.SceneApp && window.SceneApp.reset) window.SceneApp.reset();
-  const vehicles = STATE.vehicles.map(function(v){ return Object.assign({}, v, {busyUntilElapsed:0, busyHospital:null, busyStartElapsed:null, outboundMin:null, returnMin:null, outboundPath:null, returnPath:null}); });
+  const vehicles = STATE.vehicles.map(function(v){ return Object.assign({}, v, {deploymentState:'RESERVE',originHospital:null,busyUntilElapsed:0, busyHospital:null, busyStartElapsed:null, outboundMin:null, returnMin:null, outboundPath:null, returnPath:null}); });
   await kvSet(KEYS.vehicles, vehicles);
   STATE.gc=gc; STATE.patients=[]; STATE.locks={}; STATE.resources=resources; STATE.hospitals=hospitals; STATE.vehicles=vehicles; STATE.scene=JSON.parse(JSON.stringify(DEFAULT_SCENE));
   if(window.SceneViewer && window.SceneViewer.setData) window.SceneViewer.setData(null);
@@ -3025,8 +3102,11 @@ async function gmResetGame(){
   toast('รีเซ็ตเกมเรียบร้อย พร้อมเริ่มใหม่','ok');
 }
 async function gmUpdateConfig(patch){
-  const gc = Object.assign({}, STATE.gc, patch);
-  await kvSet(KEYS.gc, gc); STATE.gc=gc; render();
+  const previousGc=STATE.gc,previousRoster=STATE.roster;STATE.gc=Object.assign({},STATE.gc,patch);
+  if(patch.transportMode==='COMBINED'){STATE.roster=Object.keys(STATE.roster||{}).reduce(function(out,name){const r=STATE.roster[name];out[name]=r&&r.station==='PARKING'?Object.assign({},r,{station:'LOADING'}):r;return out;},{});}
+  applyRosterIdentity();STATE._snapshot=null;render(true);
+  const result=await kvRootTransaction(function(root){root[KEYS.gc]=Object.assign({},root[KEYS.gc]||STATE.gc,patch);if(patch.transportMode==='COMBINED'){const roster=root[KEYS.roster]||{};root[KEYS.roster]=Object.keys(roster).reduce(function(out,name){const r=roster[name];out[name]=r&&r.station==='PARKING'?Object.assign({},r,{station:'LOADING'}):r;return out;},{});}return root;});
+  if(result.committed){STATE.gc=result.root[KEYS.gc];if(result.root[KEYS.roster])STATE.roster=result.root[KEYS.roster];applyRosterIdentity();return true;}STATE.gc=previousGc;STATE.roster=previousRoster;applyRosterIdentity();toast('บันทึกการตั้งค่าไม่สำเร็จ','err');return false;
 }
 async function gmSetMapSetting(key, value){
   // Applied instantly (optimistic UI) so the toggle can't get silently
@@ -3090,7 +3170,7 @@ async function gmAddVehicle(name, type){
   await kvUpdate(KEYS.vehicles, DEFAULT_VEHICLES, function(list){
     if(list.some(function(v){ return normU(v.name)===name; })) return list;
     added=true;
-    return list.concat([{name:name,type:type,busyUntilElapsed:0,busyHospital:null}]);
+    return list.concat([{name:name,type:type,busyUntilElapsed:0,busyHospital:null,deploymentState:'RESERVE',originHospital:null}]);
   });
   STATE.vehicles = await kvGet(KEYS.vehicles, DEFAULT_VEHICLES);
   toast(added ? 'เพิ่มรถ '+name+' แล้ว' : 'มีรถชื่อนี้อยู่แล้ว', added?'ok':'err'); render();
@@ -3099,7 +3179,7 @@ async function gmRemoveVehicle(name){
   const elapsed=elapsedMinutes(STATE.gc);
   const v=STATE.vehicles.find(function(x){return x.name===name;});
   const assigned=STATE.patients.some(function(p){return p.stage==='TRANSFER' && p.vehicle===name;});
-  if(!v || vehicleEffectiveStatus(v,elapsed)!=='AVAILABLE' || assigned){ toast('ลบรถที่ไม่ว่างหรือมีผู้ป่วยถูกจัดไว้ไม่ได้','err'); return; }
+  if(!v || vehicleDeploymentState(v,elapsed)!=='RESERVE' || assigned){ toast('ลบได้เฉพาะรถที่อยู่ในกองสำรองและไม่มีผู้ป่วย','err'); return; }
   await kvUpdate(KEYS.vehicles, DEFAULT_VEHICLES, function(list){ return list.filter(function(x){return x.name!==name;}); });
   STATE.vehicles=await kvGet(KEYS.vehicles, DEFAULT_VEHICLES); toast('ลบรถ '+name+' แล้ว','ok'); render();
 }
@@ -3209,13 +3289,32 @@ async function secondarySetField(id, field, value){
     return patients.map(function(x){
       if(normU(x.id)!==normU(id))return x;
       const patch=mkPatch(field,value);
-      if(field==='secondary'){
+      if(field==='primary'){return x;}else if(field==='secondary'){
         patch.secondaryDecisionTime=elapsed;
         patch.events=(x.events||[]).concat([{t:elapsed,type:'SECONDARY_CLASSIFY '+value,by:STATE.me.name||''}]);
       }
       return Object.assign({},x,patch);
     });
   });
+}
+async function secondaryRegisterOrOpen(idRaw){
+  if(!sceneReady()){toast('ยังเข้ารับผู้ป่วยไม่ได้ — รอ Scene Setup','err');return;}
+  const id=normU(idRaw);if(!id){toast('กรอก Patient No. ก่อน','err');return;}
+  const caseObj=findCase(STATE.cases,id);if(!caseObj){toast('ไม่พบ Patient_ID นี้ใน Case pool: '+id,'err');return;}
+  const oldId=STATE.ui.focused.SECONDARY;if(oldId&&normU(oldId)!==id){await releasePatientLocks([oldId]);setFocusedPatient('SECONDARY',null);}
+  const existing=STATE.patients.find(function(p){return normU(p.id)===id;});
+  if(existing){
+    if(existing.stage!=='SECONDARY'){toast('ผู้ป่วย No. '+id+' ไม่ได้อยู่ใน Secondary Triage','err');return;}
+    if(!await claimPatientLock(id,'SECONDARY'))return;setFocusedPatient('SECONDARY',id);render(true);return;
+  }
+  if(!await claimPatientLock(id,'SECONDARY'))return;
+  const elapsed=elapsedMinutes(STATE.gc);
+  const saved=await mutatePatients(function(patients){
+    if(patients.some(function(p){return normU(p.id)===id;}))return null;
+    const order=maxOrder(patients,'primaryOrder')+1;
+    return patients.concat([{id:id,stage:'SECONDARY',canWalk:caseObj.canWalk,primary:'GREEN',primaryTime:elapsed,primaryDecisionTime:elapsed,primaryOrder:order,primaryDest:'SECONDARY',secondaryDirectRegistration:true,secondaryArrivalTime:elapsed,secondary:null,secondaryTime:null,secondaryOrder:null,secondaryDest:null,txZone:null,tx:Array(TX_SLOT_COUNT).fill(null),firstTreatmentTime:null,txStartTime:null,dx:'',txNote:'',dispo:null,transferOrder:null,vehicle:null,hospital:null,transferTime:null,transferStatus:null,closedReason:null,dischargeTime:null,createdAt:elapsed,events:[{t:elapsed,type:'REGISTERED_AT_SECONDARY',by:STATE.me.name||''},{t:elapsed,type:'PRIMARY_AUTO_GREEN',by:STATE.me.name||''}]}]);
+  });
+  if(saved){setFocusedPatient('SECONDARY',id);render(true);}else await releasePatientLocks([id]);
 }
 async function secondarySend(id, dest){
   if(!canEditLockedPatient(id))return;
@@ -3518,6 +3617,7 @@ async function dispatchSend(vehicleName,selectedIds,selectedHospital,suppressRen
     const vehicle=vehicles.find(function(v){return v.name===vehicleName;});
     if(!vehicle){fail='ไม่พบรถ '+vehicleName;return null;}
     if(vehicleEffectiveStatus(vehicle,elapsed)!=='AVAILABLE'){fail='รถยังไม่ว่าง';return null;}
+    if(vehicleDeploymentState(vehicle,elapsed)!=='LOADING'){fail='รถไม่ได้อยู่ที่ Loading';return null;}
 
     let assigned;
     if(explicitSelection){
@@ -3551,9 +3651,13 @@ async function dispatchSend(vehicleName,selectedIds,selectedHospital,suppressRen
     const manualReturn=Number(hCapacity.returnMin!=null?hCapacity.returnMin:hCapacity.distanceMin)||manualOutbound;
     const sceneTimes=(ms.useMap&&ms.distTransfer)?sceneRouteTravelTimes(hospital):null;
     const outboundMin=!ms.useMap?manualOutbound:(!ms.distTransfer?0:(sceneTimes?sceneTimes.outboundMin:manualOutbound));
-    const returnMin=!ms.useMap?manualReturn:(!ms.distTransfer?0:(sceneTimes?sceneTimes.returnMin:manualReturn));
+    let returnMin=!ms.useMap?manualReturn:(!ms.distTransfer?0:(sceneTimes?sceneTimes.returnMin:manualReturn));
     const outboundPath=(sceneTimes&&sceneTimes.outboundPath)||[];
-    const returnPath=(sceneTimes&&sceneTimes.returnPath)||[];
+    let returnPath=(sceneTimes&&sceneTimes.returnPath)||[];
+    if(ms.useMap&&ms.distTransfer){
+      const returnTent=sceneTent(((gcNow.transportMode||'SPLIT')==='COMBINED')?'loading':'parking'),hospitalTent=(STATE.scene&&STATE.scene.data&&STATE.scene.data.tents||[]).find(function(t){return t.typeId==='hospital'&&(t.name===hospital||t.linkedHospitalName===hospital);});
+      if(returnTent&&hospitalTent){returnMin=(haversineKm(hospitalTent.lat,hospitalTent.lng,returnTent.lat,returnTent.lng)/AMBULANCE_FALLBACK_KMH)*60;returnPath=[{lat:hospitalTent.lat,lng:hospitalTent.lng},{lat:returnTent.lat,lng:returnTent.lng}];}
+    }
     const arrivalAt=elapsed+outboundMin;
     const transportHarmAt=elapsed+outboundMin/2;
     const allowHospitalTreatment=hospitalTreatmentEnabled(gcNow);
@@ -3630,7 +3734,7 @@ async function dispatchSend(vehicleName,selectedIds,selectedHospital,suppressRen
       return Object.assign({},h,{redUsed:Number(h.redUsed||0)+addRed,yellowUsed:Number(h.yellowUsed||0)+addYellow,greenUsed:Number(h.greenUsed||0)+addGreen});
     });
     const nextVehicles=vehicles.map(function(v){return v.name===vehicleName?Object.assign({},v,{
-      busyStartElapsed:elapsed,outboundMin:outboundMin,returnMin:returnMin,outboundPath:outboundPath,returnPath:returnPath,
+      deploymentState:'HOSPITAL_TRIP',busyStartElapsed:elapsed,outboundMin:outboundMin,returnMin:returnMin,outboundPath:outboundPath,returnPath:returnPath,
       busyUntilElapsed:elapsed+outboundMin+returnMin,busyHospital:hospital
     }):v;});
     root[KEYS.patients]=nextPatients;
@@ -3664,12 +3768,8 @@ async function dispatchSend(vehicleName,selectedIds,selectedHospital,suppressRen
    14) GM RESOURCE / HOSPITAL EDIT ACTIONS
 ============================================================ */
 async function gmUpdateResource(item, patch){
-  await kvUpdate(KEYS.resources,DEFAULT_RESOURCES,function(list){return list.map(function(r){
-    if(r.item!==item)return r;
-    const added=patch.stock==null?0:Math.max(0,Number(patch.stock)-Number(r.stock));
-    return Object.assign({},r,patch,{addedTotal:Number(r.addedTotal||0)+added});
-  });});
-  STATE.resources=await kvGet(KEYS.resources,DEFAULT_RESOURCES);toast('อัปเดตทรัพยากร '+item,'ok');render();
+  const result=await kvRootTransaction(function(root){const list=Array.isArray(root[KEYS.resources])?root[KEYS.resources]:DEFAULT_RESOURCES.map(function(r){return Object.assign({},r);}),gc=Object.assign({},root[KEYS.gc]||STATE.gc),baseline=(Array.isArray(gc.resourceBaseline)?gc.resourceBaseline:resourceBaselineFromCurrent(list)).map(function(r){return Object.assign({},r);});root[KEYS.resources]=list.map(function(r){return r.item===item?Object.assign({},r,patch):r;});gc.resourceBaseline=baseline.map(function(r){return r.item===item?Object.assign({},r,patch):r;});root[KEYS.gc]=gc;return root;});
+  if(result.committed){STATE.resources=result.root[KEYS.resources];STATE.gc=result.root[KEYS.gc];toast('บันทึกทรัพยากร '+item+' เป็นค่าตั้งต้นล่าสุดแล้ว','ok');render();}else toast('บันทึกทรัพยากรไม่สำเร็จ','err');
 }
 async function gmAddResource(item, stock, durationSec){
   item=norm(item);
@@ -3678,8 +3778,8 @@ async function gmAddResource(item, stock, durationSec){
     toast('มีทรัพยากรชื่อนี้แล้ว','err');return;
   }
   const rec={item:item,stock:Math.max(0,Number(stock)||0),durationSec:Math.max(1,Number(durationSec)||5),triageAllowed:false,addedTotal:Math.max(0,Number(stock)||0)};
-  await kvUpdate(KEYS.resources,DEFAULT_RESOURCES,function(list){return (Array.isArray(list)?list:[]).concat([rec]);});
-  STATE.resources=await kvGet(KEYS.resources,DEFAULT_RESOURCES);toast('เพิ่มทรัพยากร '+item+' แล้ว','ok');render();
+  const result=await kvRootTransaction(function(root){const list=Array.isArray(root[KEYS.resources])?root[KEYS.resources]:DEFAULT_RESOURCES.map(function(r){return Object.assign({},r);}),gc=Object.assign({},root[KEYS.gc]||STATE.gc),baseline=(Array.isArray(gc.resourceBaseline)?gc.resourceBaseline:resourceBaselineFromCurrent(list)).map(function(r){return Object.assign({},r);});if(list.some(function(r){return String(r.item).toLowerCase()===item.toLowerCase();}))return null;root[KEYS.resources]=list.concat([rec]);gc.resourceBaseline=baseline.concat([Object.assign({},rec)]);root[KEYS.gc]=gc;return root;});
+  if(result.committed){STATE.resources=result.root[KEYS.resources];STATE.gc=result.root[KEYS.gc];toast('เพิ่มทรัพยากร '+item+' และบันทึกเป็นค่าตั้งต้นแล้ว','ok');render();}else toast('มีทรัพยากรชื่อนี้แล้ว','err');
 }
 async function gmUpdateHospital(name, patch){
   await kvUpdate(KEYS.hospitals, DEFAULT_HOSPITALS, function(list){return list.map(function(h){return h.name===name?Object.assign({},h,patch):h;});});
@@ -3731,8 +3831,9 @@ let sceneMounted = false;
 /* Stations that get the read-only live Scene Map panel. GM also gets it
    (optional, per spec) whenever GM isn't already on the Scene Setup editor
    tab, since that tab has its own live map. */
-const SCENE_VIEWER_STATIONS = ['COMMANDER','TRANSFER','DISPATCH'];
+const SCENE_VIEWER_STATIONS = ['COMMANDER','LOADING','PARKING'];
 let sceneViewerMounted = false;
+let renderGuardsBound=false;
 function rosterStationSnapshot(){
   const compact={};
   Object.keys(STATE.roster||{}).forEach(function(name){compact[name]=(STATE.roster[name]&&STATE.roster[name].station)||null;});
@@ -3749,11 +3850,11 @@ function renderSnapshotForCurrentView(){
   if(st==='PRIMARY')relevant=STATE.patients.filter(function(p){return p.stage==='PRIMARY'||(p.stage==='TRANSIT'&&p.transit&&p.transit.fromStage==='PRIMARY');});
   else if(st==='SECONDARY')relevant=STATE.patients.filter(function(p){return p.stage==='SECONDARY'||(p.stage==='TRANSIT'&&p.transit&&p.transit.fromStage==='SECONDARY');});
   else if(st.indexOf('TX_')===0){const zone=st.slice(3);relevant=STATE.patients.filter(function(p){return p.stage==='TX'&&p.txZone===zone;});}
-  else if(st==='TRANSFER'||st==='DISPATCH')relevant=STATE.patients.filter(function(p){return p.stage==='TRANSFER';});
+  else if(st==='LOADING'||st==='PARKING')relevant=STATE.patients.filter(function(p){return p.stage==='TRANSFER';});
   else if(st==='DISCHARGE')relevant=STATE.patients.filter(function(p){return p.stage==='CLOSED';});
   const scoped={patients:relevant,roster:rosterStations};
   if(st==='PRIMARY'||st==='SECONDARY'||st.indexOf('TX_')===0)scoped.resources=STATE.resources;
-  if(st==='TRANSFER'||st==='DISPATCH')Object.assign(scoped,{hospitals:STATE.hospitals,vehicles:STATE.vehicles,scene:STATE.scene});
+  if(st==='LOADING'||st==='PARKING')Object.assign(scoped,{hospitals:STATE.hospitals,vehicles:STATE.vehicles,scene:STATE.scene});
   return JSON.stringify(Object.assign(base,scoped));
 }
 function render(force){
@@ -3766,11 +3867,20 @@ function render(force){
 
   const active = document.activeElement;
   let preserved = null;
-  if(active && active.matches && active.matches('[data-preserve]')){
+  if(active && active.id && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName||'')){
     preserved = {id:active.id, value:active.value, selStart:active.selectionStart, selEnd:active.selectionEnd};
   }
 
   const app = document.getElementById('app');
+  if(!renderGuardsBound){
+    renderGuardsBound=true;
+    app.addEventListener('pointerdown',function(e){if(e.target.closest('[data-act]'))actionPointerBusy=true;if(e.target.closest('select'))selectMenuBusy=true;},true);
+    app.addEventListener('focusin',function(e){if(e.target.tagName==='SELECT')selectMenuBusy=true;},true);
+    app.addEventListener('change',function(e){if(e.target.closest('select')){selectMenuBusy=false;if(backgroundRenderPending)scheduleBackgroundRender();}},true);
+    app.addEventListener('focusout',function(e){if(e.target.tagName==='SELECT'){selectMenuBusy=false;if(backgroundRenderPending)scheduleBackgroundRender();}},true);
+    window.addEventListener('pointerup',function(){if(!actionPointerBusy)return;actionPointerBusy=false;if(backgroundRenderPending&&!selectMenuBusy)scheduleBackgroundRender();},true);
+    window.addEventListener('pointercancel',function(){actionPointerBusy=false;selectMenuBusy=false;if(backgroundRenderPending)scheduleBackgroundRender();},true);
+  }
   app.innerHTML = buildView();
 
   if(preserved){
@@ -3778,6 +3888,7 @@ function render(force){
     if(el){
       el.value = preserved.value;
       el.focus();
+      if(el.tagName==='SELECT')selectMenuBusy=false;
       try{ el.setSelectionRange(preserved.selStart, preserved.selEnd); }catch(e){}
     }
   }
@@ -3923,7 +4034,7 @@ function viewWaiting(){
     const live = (Date.now()-(r.lastSeen||0)) < 45000;
     return '<div class="roster-row"><span class="'+(live?'dotlive':'dotstale')+'"></span>'
       + '<span class="roster-name">'+esc(n)+(n===STATE.me.name?' (คุณ)':'')+'</span>'
-      + '<span class="badge '+(r.station?'ok':'wait')+'">'+(r.station ? esc(STATION_LABEL[r.station]||r.station) : 'ยังไม่ได้รับมอบหมาย')+'</span>'
+      + '<span class="badge '+(r.station?'ok':'wait')+'">'+(r.station ? esc(stationLabel(r.station)) : 'ยังไม่ได้รับมอบหมาย')+'</span>'
       + '</div>';
   }).join('') : '<p>ยังไม่มีใครเข้าร่วม</p>';
 
@@ -3949,7 +4060,7 @@ function viewShell(bodyHtml){
   +   renderClockPill()
   +   '<div class="mebadge">'
   +     '<span>👤 <b>'+esc(STATE.me.name)+'</b></span>'
-  +     '<span class="badge neutral">'+esc(STATION_LABEL[STATE.me.station]||STATE.me.station)+'</span>'
+  +     '<span class="badge neutral">'+esc(stationLabel(STATE.me.station))+'</span>'
   +     '<button class="switchbtn" data-act="leaveJoin">ออก</button>'
   +   '</div>'
   + '</div>'
@@ -4031,7 +4142,8 @@ function viewStationBody(){
   if(st==='TX_RED') return viewTx('RED');
   if(st==='TX_YELLOW') return viewTx('YELLOW');
   if(st==='TX_GREEN') return viewTx('GREEN');
-  if(st==='TRANSFER'||st==='DISPATCH') return viewTransfer();
+  if(st==='LOADING') return viewTransfer();
+  if(st==='PARKING') return transportCombined()?viewTransfer():viewParking();
   if(st==='DISCHARGE') return viewDischargeLog();
   return '<div class="empty"><div class="big">🤷</div>ไม่รู้จักสถานีนี้</div>';
 }
@@ -4193,12 +4305,12 @@ function viewSecondary(){
   let card='';
   if(p){
     const dead=patientIsDead(p,elapsed),isBlack=p.secondary==='BLACK',busy=hasAnyTxInProgress(p,elapsed),triageBlocked=busy||!staffFree;
-    card='<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'"><div class="pidrow">'+patientFocusAvatarHtml(p,p.secondary||p.primary||'gray')+'<span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Primary: '+triageBadge(p.primary)+(dead?'<span class="badge dead">DEAD</span>':'')+'</div>'
+    card='<div class="patient-card stripe-'+(p.secondary||p.primary||'')+'"><div class="pidrow">'+patientFocusAvatarHtml(p,p.secondary||p.primary||'gray')+'<span class="pid">#'+esc(p.id)+'</span>'+canWalkBadge(effectiveCanWalk(p))+' Primary: '+triageBadge(p.primary)+(p.secondaryDirectRegistration?'<span class="badge wait">รับตรงที่ Secondary</span>':'')+(dead?'<span class="badge dead">DEAD</span>':'')+'</div>'
       +(dead?'<div class="hint" style="color:var(--red);">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Secondary Triage</div>':'<div class="subrow"><span class="label" style="margin:0 8px 0 0;">Secondary triage</span>'+triageButtonsHtml(p.id,'secondary',p.secondary,'secondarySet',triageBlocked)+'</div>'+triageTreatmentHtml(p,'SECONDARY',elapsed)+'<div class="subrow">'+(isBlack?'':'<button class="btn sm primary" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="TX" '+((!p.secondary||busy)?'disabled':'')+'>ส่งต่อ Treatment →</button>')+'<button class="btn sm" data-act="secondarySend" data-pid="'+esc(p.id)+'" data-dest="DISCHARGE" '+((!p.secondary||busy)?'disabled':'')+'>Discharge</button></div>')+'</div>';
   }
   return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">ASSESSMENT STATION</div><h1>'+stationHeading('secondary','Secondary Triage')+'</h1></div><div class="capbar">Staff <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
     +anonymousCensusHtml(queue,'ผู้ป่วยใน Secondary Triage',function(p){return p.primary||'gray';},'SECONDARY')
-    +patientSearchHtml('SECONDARY','secondaryIdInput','กรอก Patient No. เพื่อเปิดผู้ป่วย',false)
+    +'<div class="card patient-search-card"><label class="label">กรอก Patient No. — ถ้าเป็นครั้งแรก ระบบจะรับเข้า Secondary และตั้ง Primary GREEN อัตโนมัติ</label><div class="flexrow"><input type="text" id="secondaryIdInput" data-preserve class="flex1" placeholder="เช่น 25" data-enter-act="secondaryRegister"><button class="btn primary" data-act="secondaryRegister" data-input="secondaryIdInput">รับ / เปิดผู้ป่วย</button>'+(STATE.ui.focused.SECONDARY?'<button class="btn" data-act="patientFocusClear" data-key="SECONDARY">ปิดเคสบนจอ</button>':'')+'</div><div class="search-hint">Primary จะเป็น GREEN และไม่สามารถแก้ไขได้จากหน้า Secondary</div></div>'
     +(card||'<div class="focused-patient-empty">กรอก No. ก่อนทำ Secondary Triage</div>');
 }
 
@@ -4245,6 +4357,9 @@ function triageTreatmentHtml(p,stage,elapsed){
   if(!allowed.length)return '';
   return '<div class="card" style="padding:10px;margin-top:10px;"><div class="flexrow" style="justify-content:space-between;"><b>Initial Treatment</b><span class="hint">ใช้ Staff ของ '+(stage==='PRIMARY'?'Primary':'Secondary')+' Triage</span></div><div style="margin-top:6px;">'+visibleTxSlotIndexes(p).map(function(i){return txSlotSelectHtml(p,i,elapsed,stage);}).join('')+'</div></div>';
 }
+function treatmentResourceCapacityHtml(){
+  return '<div class="card" style="margin-bottom:14px;padding:12px 14px"><div class="flexrow" style="justify-content:space-between;margin-bottom:9px"><b>อุปกรณ์ Treatment ที่มีในคลัง</b><span class="hint">ตรวจสอบตั้งแต่ต้นเพื่อขอเพิ่มจาก GM</span></div><div class="resource-rack">'+STATE.resources.map(function(r){const empty=Number(r.stock)<=0;return '<div class="resource-chip"><span>'+esc(r.item)+'</span><b style="'+(empty?'color:var(--red)':'')+'">'+Number(r.stock)+(empty?' · หมด':'')+'</b></div>';}).join('')+'</div></div>';
+}
 
 function viewTx(zone){
   const elapsed=elapsedMinutes(STATE.gc), capacity=treatmentStaffCount(zone), used=countZoneInProgress(STATE.patients,zone,elapsed);
@@ -4261,7 +4376,7 @@ function viewTx(zone){
       +'<div class="card treatment-console"><div class="treatment-section"><div class="treatment-section-title">CLINICAL IMPRESSION</div><label class="label">Diagnosis / Impression (Dx)</label><input type="text" data-act="txDx" data-pid="'+esc(p.id)+'" data-preserve id="txdx_'+esc(p.id)+'" value="'+esc(p.dx||'')+'" placeholder="เช่น suspected fracture, chest injury"><label class="label" style="margin-top:12px">Handoff Note</label><textarea data-act="txNote" data-pid="'+esc(p.id)+'" data-preserve id="txnote_'+esc(p.id)+'" rows="4" placeholder="บันทึกอาการ การประเมิน และแผนการรักษา">'+esc(p.txNote||'')+'</textarea></div>'
       +(dead?'<div class="treatment-section"><span class="badge dead">DEAD</span><div class="hint" style="color:var(--red);margin-top:8px">'+esc(deathReasonFor(p,elapsed))+' — ค้างที่ Treatment</div></div>':'<div class="treatment-section"><div class="treatment-section-title">TREATMENT SEQUENCE</div>'+visibleTxSlotIndexes(p).map(function(i){return txSlotSelectHtml(p,i,elapsed);}).join('')+'</div><div class="treatment-actions"><button class="btn primary" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="TRANSFER" '+(busy?'disabled':'')+'>ส่งต่อ Transfer →</button><button class="btn" data-act="txDispo" data-pid="'+esc(p.id)+'" data-value="DISCHARGE" '+(busy?'disabled':'')+'>Discharge</button></div><div class="hint" style="margin-top:10px">ระบบจะไม่เปิดเผยคำตอบระหว่างเกม ผลการตัดสินใจจะแสดงใน Debrief</div>')+'</div></div>';
   }
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TREATMENT STATION · '+zone+'</div><h1>'+stationHeading('treatment','Treatment · '+zone)+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TREATMENT STATION · '+zone+'</div><h1>'+stationHeading('treatment','Treatment · '+zone)+'</h1></div><div class="capbar">Staff capacity <div class="capfill"><i style="width:'+(capacity?Math.min(100,(used/capacity)*100):0)+'%"></i></div> '+used+'/'+capacity+' กำลังรักษา · ในโซน '+queue.length+'</div></div>'+treatmentResourceCapacityHtml()
     +anonymousCensusHtml(queue,'ผู้ป่วยใน Treatment '+zone,function(){return zone;},'TX_'+zone)
     +patientSearchHtml(focusKey,'txIdInput_'+zone,'กรอก Patient No. ก่อนเริ่ม Treatment',false)
     +(card||'<div class="focused-patient-empty">กรอก No. ก่อนเปิด Treatment ของผู้ป่วย</div>');
@@ -4277,19 +4392,22 @@ function transferTreatmentSummary(p,elapsed){
   const done=(p&&p.tx||[]).filter(Boolean).filter(function(slot){return txSlotStatus(slot,elapsed)==='SUCCESS';}).map(function(slot){return slot.item;});
   return done.length?done.join(', '):'ยังไม่มี Treatment ที่สำเร็จ';
 }
+function vehicleRequestControls(level,label){
+  return '<div class="hint" style="margin-bottom:8px;">'+label+' — พิมพ์จำนวนที่ต้องการ แล้วผู้รับคำขอทยอยส่งได้ตามกำลัง Staff</div><div class="grid cols-3">'+['ALS','BLS','BUS'].map(function(type){const id='vehicle_qty_'+level+'_'+type;return '<div class="card" style="padding:9px"><label class="label">'+type+' (คัน)</label><div class="flexrow"><input type="number" min="1" max="99" value="1" id="'+id+'" style="width:76px"><button class="btn" data-act="vehicleRequest" data-level="'+level+'" data-type="'+type+'" data-qty-input="'+id+'">ขอรถ</button></div></div>';}).join('')+'</div>';
+}
 function viewTransfer(){
   const elapsed=elapsedMinutes(STATE.gc);
   const queue=STATE.patients.filter(function(p){return p.stage==='TRANSFER';}).sort(sortByZoneEntry('TRANSFER'));
   const transferUi=STATE.ui.transfer||{vehicle:null,patientIds:[],hospital:null};
-  const selectedVehicle=STATE.vehicles.find(function(v){return v.name===transferUi.vehicle&&vehicleEffectiveStatus(v,elapsed)==='AVAILABLE';})||null;
+  const selectedVehicle=STATE.vehicles.find(function(v){return v.name===transferUi.vehicle&&vehicleDeploymentState(v,elapsed)==='LOADING';})||null;
   const selectedIds=selectedVehicle?(transferUi.patientIds||[]).filter(function(id){
     const lock=patientLockFor(id);
     return lock&&patientLockOwnedByMe(lock)&&queue.some(function(p){return normU(p.id)===normU(id);});
   }):[];
   const selectedPatients=queue.filter(function(p){return selectedIds.indexOf(normU(p.id))>-1;});
-  const availableVehicles=STATE.vehicles.filter(function(v){return vehicleEffectiveStatus(v,elapsed)==='AVAILABLE';});
+  const availableVehicles=STATE.vehicles.filter(function(v){return vehicleDeploymentState(v,elapsed)==='LOADING';});
   const parkedVehicles=availableVehicles.filter(function(v){return !selectedVehicle||v.name!==selectedVehicle.name;});
-  const busyVehicles=STATE.vehicles.filter(function(v){return vehicleEffectiveStatus(v,elapsed)!=='AVAILABLE';});
+  const busyVehicles=STATE.vehicles.filter(function(v){const state=vehicleDeploymentState(v,elapsed);return state==='TO_LOADING'||(transportCombined()&&state==='HOSPITAL_TRIP');});
   const sitting=selectedPatients.filter(function(p){return effectiveCanWalk(p)==='yes';}).length;
   const lying=selectedPatients.length-sitting;
   const load=selectedVehicle?calcVehicleLoad(selectedVehicle.type,selectedPatients.length,sitting,lying,transferUi.hospital?1:0):{ok:false,label:'กรุณาเลือกรถ'};
@@ -4301,6 +4419,7 @@ function viewTransfer(){
   }).join('');
   const returningVehicles=busyVehicles.map(function(v){
     const type=dashboardVehicleType(v);
+    if(vehicleDeploymentState(v,elapsed)==='TO_LOADING')return '<div class="transfer-return-card '+type+'"><span class="parking-vehicle-label">'+esc(vehicleDisplayName(v))+'</span><div class="vehicle-visual '+type+'">'+vehicleGraphicSvg(type)+'</div><div class="transfer-return-phase">กำลังมาจาก '+esc(transportCombined()?(v.originHospital||'โรงพยาบาล'):'Parking')+'</div><div class="transfer-return-time">'+liveCountdownHtml(v.busyUntilElapsed,elapsed,'ถึง Loading','ถึงใน ')+'</div></div>';
     const reachedHospital=v.busyStartElapsed!=null&&v.outboundMin!=null&&elapsed>=Number(v.busyStartElapsed)+Number(v.outboundMin);
     const phase=reachedHospital?'กำลังกลับจาก ':'กำลังไป ';
     return '<div class="transfer-return-card '+type+'"><span class="parking-vehicle-label">'+esc(vehicleDisplayName(v))+'</span>'
@@ -4346,11 +4465,13 @@ function viewTransfer(){
   const hospitalOptions=['<option value="">— เลือกโรงพยาบาล —</option>'].concat(STATE.hospitals.map(function(h){return '<option value="'+esc(h.name)+'">'+esc(h.name)+'</option>';})).join('');
   const selectedHospitalOptions=hospitalOptions.replace('value="'+esc(transferUi.hospital||'###')+'"','value="'+esc(transferUi.hospital||'###')+'" selected');
   const canSend=!!selectedVehicle&&selectedPatients.length>0&&!!transferUi.hospital&&load.ok;
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TRANSPORT OPERATIONS</div><h1>'+stationHeading('transfer','Transfer & Vehicle')+'</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'
+  const requestLevel=transportCombined()?'PARKING_TO_COMMAND':'LOADING_TO_PARKING',loadingReqs=pendingVehicleRequests(requestLevel);
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">TRANSPORT OPERATIONS</div><h1>'+stationHeading('transfer',transportCombined()?'Loading + Parking':'Loading Area')+'</h1></div><span class="badge neutral">รอในคิว '+queue.length+'</span></div>'+vehicleCapacityRulesHtml()
     +'<div class="transfer-workflow">'
-      +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">1</span>ลานจอดรถ <span class="badge neutral">ว่าง '+availableVehicles.length+' คัน</span></div>'
-        +'<div class="hint" style="margin-bottom:10px;">รถที่ทุกหน้าจอเห็นตรงกัน · เลือก Bay เพื่อย้ายรถไปช่องเตรียมส่ง</div><div class="transfer-vehicle-grid ambulance-bay">'+(vehicleChoices||'<span class="hint">ไม่มีรถว่างในลานจอด</span>')+'</div>'
-        +(busyVehicles.length?'<div class="transfer-returning"><div class="transfer-row-head"><b>รถออกปฏิบัติการ / กำลังกลับ</b><span class="badge wait">'+busyVehicles.length+' คัน</span></div><div class="transfer-return-grid">'+returningVehicles+'</div></div>':'')+'</div>'
+      +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">1</span>'+(transportCombined()?'ขอรถจาก Command / GM':'ขอรถจาก Parking')+' <span class="badge neutral">ที่ Loading '+availableVehicles.length+' คัน</span></div>'
+        +vehicleRequestControls(requestLevel,transportCombined()?'โหมด Extern: Loading ขอรถจาก Command / GM โดยตรง':'ส่งคำขอไปยังผู้เล่น Parking')
+        +(loadingReqs.length?'<div class="hint" style="margin-top:10px;color:var(--yellow)">กำลังรอ: '+loadingReqs.map(function(r){return r.type+' '+vehicleRequestRemaining(r)+' คัน';}).join(', ')+'</div>':'')+'<div class="transfer-vehicle-grid" style="margin-top:12px">'+(vehicleChoices||'<span class="hint">ยังไม่มีรถจอดที่ Loading</span>')+'</div>'
+        +(busyVehicles.length?'<div class="transfer-returning"><div class="transfer-row-head"><b>รถกำลังมาที่ Loading</b><span class="badge wait">'+busyVehicles.length+' คัน</span></div><div class="transfer-return-grid">'+returningVehicles+'</div></div>':'')+'</div>'
       +'<div class="transfer-step"><div class="transfer-step-title"><span class="transfer-step-num">2</span>ผู้ป่วยรอขึ้นรถ <span class="badge neutral">ข้อมูลกลาง '+queue.length+' คน</span></div>'+colorRows
         +(black.length?'<div class="transfer-patient-row"><div class="transfer-row-head"><b>BLACK</b><span class="badge BLACK">'+black.length+' คน</span></div><div class="transfer-patient-grid">'+black.filter(function(p){return selectedIds.indexOf(normU(p.id))<0;}).map(waitingPatientChoice).join('')+'</div></div>':'')
         +(!selectedVehicle?'<div class="hint" style="margin-top:10px;">เลือกรถก่อน จึงจะกดเลือกผู้ป่วยขึ้นรถได้</div>':'')+'</div>'
@@ -4360,6 +4481,27 @@ function viewTransfer(){
         +'<div class="transfer-sendbar"><label class="label">โรงพยาบาลปลายทาง</label><select data-act="transferHospitalLocal" '+(selectedVehicle?'':'disabled')+'>'+selectedHospitalOptions+'</select>'
           +'<div class="transfer-load-summary"><b>'+(selectedVehicle?esc(vehicleDisplayName(selectedVehicle)):'ยังไม่ได้เลือกรถ')+'</b><br>ผู้ป่วยบนรถ '+selectedPatients.length+' คน · นั่ง '+sitting+' · นอน '+lying+'<br><span class="'+(load.ok?'vehicle-load-ok':'vehicle-load-bad')+'">'+esc(load.label)+'</span></div>'
           +'<button class="btn primary block" data-act="transferSendBatch" '+(canSend?'':'disabled')+'>SEND รถพร้อมผู้ป่วย</button></div></div></div>';
+}
+function viewParking(){
+  const elapsed=elapsedMinutes(STATE.gc),parked=STATE.vehicles.filter(function(v){return vehicleDeploymentState(v,elapsed)==='PARKING';}),incoming=STATE.vehicles.filter(function(v){return vehicleDeploymentState(v,elapsed)==='TO_PARKING';});
+  const loadingReqs=pendingVehicleRequests('LOADING_TO_PARKING'),commandReqs=pendingVehicleRequests('PARKING_TO_COMMAND');
+  const requestRows=loadingReqs.map(function(r){const choices=parked.filter(function(v){return normU(v.type)===r.type;});return '<div class="card" style="padding:12px"><div class="flexrow" style="justify-content:space-between"><div><b>Loading ขอ '+r.type+' · เหลือ '+vehicleRequestRemaining(r)+' คัน</b><div class="hint">โดย '+esc(r.requestedBy)+' · '+fmtMin(r.requestedAt)+' · ส่งแล้ว '+Number(r.fulfilledCount||0)+'/'+Number(r.quantity||1)+'</div></div><div class="flexrow">'+(choices.length?choices.map(function(v){return '<button class="btn primary" data-act="parkingSendLoading" data-request="'+esc(r.id)+'" data-vehicle="'+esc(v.name)+'">ส่ง '+esc(v.name)+'</button>';}).join(''):'<span class="badge wait">ไม่มีรถประเภทนี้</span>')+'</div></div></div>';}).join('');
+  const vehicleTiles=parked.map(function(v){return dashboardVehicleTileHtml(v,[],elapsed,true);}).join('');
+  const incomingTiles=incoming.map(function(v){return '<div class="transfer-return-card '+dashboardVehicleType(v)+'"><span class="parking-vehicle-label">'+esc(v.name)+'</span><div class="vehicle-visual '+dashboardVehicleType(v)+'">'+vehicleGraphicSvg(dashboardVehicleType(v))+'</div><div class="transfer-return-phase">จาก '+esc(v.originHospital||'โรงพยาบาล')+'</div><div class="transfer-return-time">'+liveCountdownHtml(v.busyUntilElapsed,elapsed,'ถึง Parking','ถึงใน ')+'</div></div>';}).join('');
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">VEHICLE STAGING</div><h1>'+stationHeading('transfer','Parking Control')+'</h1></div><span class="badge neutral">พร้อมใช้ '+parked.length+' คัน</span></div>'
+    +vehicleCapacityRulesHtml()
+    +(incoming.length?'<div class="card" style="border-color:rgba(96,165,250,.45)"><div class="transfer-row-head"><b>🚨 รถที่กำลังมาถึง Parking</b><span class="badge wait">'+incoming.length+' คัน</span></div><div class="hint" style="margin-bottom:10px">แสดงชื่อรถ โรงพยาบาลต้นทาง และเวลาคงเหลือแบบนับถอยหลัง</div><div class="transfer-return-grid">'+incomingTiles+'</div></div>':'')
+    +'<div class="grid cols-2"><div><div class="card"><h3>คำขอจาก Loading</h3><div class="hint" style="margin-bottom:10px">เลือกรถที่ตรงประเภทแล้วส่งไป Loading</div>'+(requestRows||'<div class="zone-empty">ยังไม่มีคำขอจาก Loading</div>')+'</div></div>'
+    +'<div><div class="card"><h3>ขอรถเพิ่มจาก Command / GM</h3>'+vehicleRequestControls('PARKING_TO_COMMAND','ระบุจำนวนรถที่ Parking ต้องการ')+(commandReqs.length?'<div class="hint" style="margin-top:10px;color:var(--yellow)">รอ Command: '+commandReqs.map(function(r){return r.type+' '+vehicleRequestRemaining(r)+' คัน';}).join(', ')+'</div>':'')+'</div></div></div>'
+    +'<div class="card section-gap"><h3>Ambulance Parking</h3><div class="transfer-vehicle-grid ambulance-bay">'+(vehicleTiles||'<div class="zone-empty">ยังไม่มีรถใน Parking</div>')+'</div></div>';
+}
+
+function commandRequestDomKey(id){return String(id||'request').replace(/[^a-zA-Z0-9_-]/g,'_');}
+function commandVehicleRequestPanel(compact){
+  const elapsed=elapsedMinutes(STATE.gc),requests=pendingVehicleRequests('PARKING_TO_COMMAND'),reserve=STATE.vehicles.filter(function(v){return vehicleDeploymentState(v,elapsed)==='RESERVE';}),destination=transportCombined()?'Loading + Parking':'Parking';
+  if(!STATE.ui.commandRequests)STATE.ui.commandRequests={};
+  const rows=requests.map(function(r){const key=commandRequestDomKey(r.id),saved=STATE.ui.commandRequests[r.id]||{},matching=reserve.filter(function(v){return normU(v.type)===r.type;}),selectedVehicle=matching.some(function(v){return v.name===saved.vehicle;})?saved.vehicle:'',selectedHospital=STATE.hospitals.some(function(h){return h.name===saved.hospital;})?saved.hospital:'';const vehicleOptions=matching.map(function(v){return '<option value="'+esc(v.name)+'" '+(v.name===selectedVehicle?'selected':'')+'>'+esc(v.name)+'</option>';}).join(''),hospOptions=STATE.hospitals.map(function(h){return '<option value="'+esc(h.name)+'" '+(h.name===selectedHospital?'selected':'')+'>'+esc(h.name)+'</option>';}).join('');return '<div class="card" style="padding:10px;margin-top:8px"><div class="grid cols-3"><div><b>ขอ '+r.type+' · เหลือ '+vehicleRequestRemaining(r)+' คัน</b><div class="hint">'+esc(r.requestedBy)+' · ส่งแล้ว '+Number(r.fulfilledCount||0)+'/'+Number(r.quantity||1)+'</div></div><div><label class="label">เลือกรถสำรอง</label><select id="cmd_req_vehicle_'+key+'" data-act="commandRequestSelection" data-request="'+esc(r.id)+'" data-field="vehicle"><option value="">— เลือกรถ —</option>'+vehicleOptions+'</select></div><div><label class="label">เลือก รพ. ต้นทาง</label><select id="cmd_req_hosp_'+key+'" data-act="commandRequestSelection" data-request="'+esc(r.id)+'" data-field="hospital"><option value="">— เลือก รพ. —</option>'+hospOptions+'</select><button class="btn primary block" style="margin-top:7px" data-act="commandSendParking" data-request="'+esc(r.id)+'">ส่ง 1 คันไป '+destination+'</button></div></div></div>';}).join('');
+  return '<div class="card '+(compact?'':'section-gap')+'" style="margin-top:10px"><h3>🚑 คำขอรถจาก '+destination+'</h3><div class="hint" style="margin-bottom:8px">เลือกชื่อรถและโรงพยาบาลต้นทาง แล้วส่งได้จาก Dashboard นี้ทันที</div>'+(rows||'<div class="zone-empty">ยังไม่มีคำขอรถ</div>')+'</div>';
 }
 
 /* ============================================================
@@ -4571,28 +4713,29 @@ function dashboardVehicleTileHtml(v,passengers,elapsed,isParking){
     +(!isParking?'<div class="vehicle-meta">ปลายทาง: '+esc(destination)+' · นั่ง '+sitting+' · นอน '+lying+'</div>':'')
     +'</div>';
 }
-function transferOperationsBoxHtml(elapsed){
+function transferOperationsBoxHtml(elapsed,includeVehicleRequests){
   const transferPatients=STATE.patients.filter(function(p){return p.stage==='TRANSFER';}).sort(sortByZoneEntry('TRANSFER'));
   const vehicleNames=STATE.vehicles.map(function(v){return v.name;});
   const waiting=transferPatients.filter(function(p){return !p.vehicle||vehicleNames.indexOf(p.vehicle)<0;});
   const loaded=STATE.vehicles.map(function(v){
     return {vehicle:v,passengers:transferPatients.filter(function(p){return p.vehicle===v.name;})};
   }).filter(function(x){return x.passengers.length>0;});
-  return '<div class="zone-box"><div class="zone-box-head"><div class="zone-box-title">Transfer</div><div class="zone-box-count">'+transferPatients.length+' patients · '+loaded.length+' vehicles</div></div>'
+  const loadingVehicles=STATE.vehicles.filter(function(v){return vehicleDeploymentState(v,elapsed)==='LOADING'&&!loaded.some(function(x){return x.vehicle.name===v.name;});});
+  return '<div class="zone-box"><div class="zone-box-head"><div class="zone-box-title">'+(transportCombined()?'Loading + Parking':'Loading')+'</div><div class="zone-box-count">'+transferPatients.length+' patients · '+loaded.length+' vehicles</div></div>'
     +'<div class="zone-staff-title" style="margin-top:10px;">รอขึ้นรถ</div><div class="zone-people">'+(waiting.length?waiting.map(function(p){return pixelPatientHtml(p,'TRANSFER',elapsed);}).join(''):'<div class="zone-empty">ไม่มีผู้ป่วยรอจัดรถ</div>')+'</div>'
-    +'<div class="zone-staff-title">รถที่รับผู้ป่วยแล้ว</div><div class="vehicle-stack">'+(loaded.length?loaded.map(function(x){return dashboardVehicleTileHtml(x.vehicle,x.passengers,elapsed,false);}).join(''):'<div class="zone-empty">ยังไม่มีรถรับผู้ป่วย</div>')+'</div>'
-    +zoneStaffHtml(['TRANSFER','DISPATCH'],elapsed)+'</div>';
+    +'<div class="zone-staff-title">รถที่ Loading</div><div class="vehicle-stack">'+((loaded.length||loadingVehicles.length)?loaded.map(function(x){return dashboardVehicleTileHtml(x.vehicle,x.passengers,elapsed,false);}).join('')+loadingVehicles.map(function(v){return dashboardVehicleTileHtml(v,[],elapsed,true);}).join(''):'<div class="zone-empty">ยังไม่มีรถที่ Loading</div>')+'</div>'
+    +zoneStaffHtml(transportCombined()?['LOADING','PARKING']:['LOADING'],elapsed)+(includeVehicleRequests?commandVehicleRequestPanel(true):'')+'</div>';
 }
-function parkingBoxHtml(elapsed){
+function parkingBoxHtml(elapsed,includeVehicleRequests){
   const assignedNames=uniq(STATE.patients.filter(function(p){return p.stage==='TRANSFER'&&p.vehicle;}).map(function(p){return p.vehicle;}));
-  const parked=STATE.vehicles.filter(function(v){return vehicleEffectiveStatus(v,elapsed)==='AVAILABLE'&&assignedNames.indexOf(v.name)<0;});
-  const busy=STATE.vehicles.filter(function(v){return vehicleEffectiveStatus(v,elapsed)!=='AVAILABLE'&&assignedNames.indexOf(v.name)<0;});
+  const parked=STATE.vehicles.filter(function(v){return vehicleDeploymentState(v,elapsed)==='PARKING'&&assignedNames.indexOf(v.name)<0;});
+  const busy=STATE.vehicles.filter(function(v){return ['TO_PARKING','TO_LOADING','HOSPITAL_TRIP'].indexOf(vehicleDeploymentState(v,elapsed))>-1&&assignedNames.indexOf(v.name)<0;});
   const counts={ALS:0,BLS:0,BUS:0};parked.forEach(function(v){const type=dashboardVehicleType(v);if(counts[type]!=null)counts[type]++;});
   return '<div class="zone-box compact"><div class="zone-box-head"><div class="zone-box-title">Parking</div><div class="zone-box-count">พร้อมใช้ '+parked.length+' คัน</div></div>'
     +'<div class="parking-summary"><span>ALS '+counts.ALS+'</span><span>BLS '+counts.BLS+'</span><span>BUS '+counts.BUS+'</span></div>'
     +'<div class="vehicle-stack">'+(parked.length?parked.map(function(v){return dashboardVehicleTileHtml(v,[],elapsed,true);}).join(''):'<div class="zone-empty">ไม่มีรถว่างใน Parking</div>')+'</div>'
-    +(busy.length?'<div class="parking-busy">ออกปฏิบัติการ '+busy.length+' คัน · '+busy.map(function(v){return esc(v.name);}).join(', ')+'</div>':'')
-    +'</div>';
+    +(busy.length?'<div class="parking-busy">กำลังเคลื่อนย้าย '+busy.length+' คัน · '+busy.map(function(v){return esc(v.name);}).join(', ')+'</div>':'')
+    +zoneStaffHtml(['PARKING'],elapsed)+(includeVehicleRequests?commandVehicleRequestPanel(true):'')+'</div>';
 }
 function hospitalZoneBoxHtml(name,elapsed){
   const patients=STATE.patients.filter(function(p){return dashboardPatientZone(p)==='HOSPITAL'&&(p.hospital||'ยังไม่ระบุปลายทาง')===name;}).sort(sortByZoneEntry('HOSPITAL'));
@@ -4620,7 +4763,7 @@ function gmZoneFlowBoard(elapsed){
       +zoneBoxHtml('TX_YELLOW','Treatment YELLOW',['TX_YELLOW'],elapsed,'compact yellow')
       +zoneBoxHtml('TX_GREEN','Treatment GREEN',['TX_GREEN'],elapsed,'compact green')
     +'</div>'
-    +'<div class="zone-flow-column">'+transferOperationsBoxHtml(elapsed)+parkingBoxHtml(elapsed)+'</div>'
+    +'<div class="zone-flow-column">'+transferOperationsBoxHtml(elapsed,transportCombined())+(transportCombined()?'':parkingBoxHtml(elapsed,true))+'</div>'
     +'<div class="zone-flow-column">'+gmHospitalColumnHtml(elapsed)+'</div>'
   +'</div>';
 }
@@ -4703,6 +4846,7 @@ function gmTabControl(){
   +       '</div>'
   +       '<div class="card" style="padding:12px;margin-top:12px;">'
   +         '<label class="label">ตัวเลือกการจำลอง</label>'
+  +         '<div style="margin-bottom:12px"><label class="label">รูปแบบงานรถ</label><select id="cfgTransportMode" data-act="transportModeChange"><option value="COMBINED" '+(transportCombined()?'selected':'')+'>Extern — รวม Loading + Parking</option><option value="SPLIT" '+(!transportCombined()?'selected':'')+'>Resident — แยก Loading / Parking</option></select><div class="hint" style="margin-top:5px">เลือกแล้วบันทึกทันที · โหมด Extern ใช้ผู้เล่น Loading คนเดียวดูทั้งสองส่วน</div></div>'
   +         toggleRow('cfgFastTreatment','ทุก Treatment ใช้เวลา 5 วินาที',!!gc.fastTreatment,false,'fastTreatmentToggle')
   +         toggleRow('cfgHospitalTreatment','อนุญาต Hospital Simulation หลัง Refer',hospitalMode,false,'hospitalTreatmentToggle')
   +       '</div>'
@@ -4838,14 +4982,16 @@ function gmTabScene(){
 
 function gmTabRoster(){
   const names = Object.keys(STATE.roster);
+  const assignable=STATIONS.filter(function(s){return !transportCombined()||s.id!=='PARKING';});
   const options = ['<option value="">— ไม่มอบหมาย —</option>'].concat(
-    STATIONS.map(function(s){ return '<option value="'+s.id+'">'+s.label+'</option>'; })
+    assignable.map(function(s){ return '<option value="'+s.id+'">'+esc(stationLabel(s.id))+'</option>'; })
   ).join('');
 
   const rows = names.map(function(n){
     const r = STATE.roster[n];
     const live = (Date.now()-(r.lastSeen||0)) < 45000;
-    const opts = options.replace('value="'+esc(r.station||'###')+'"','value="'+esc(r.station||'###')+'" selected');
+    const displayStation=transportCombined()&&r.station==='PARKING'?'LOADING':r.station;
+    const opts = options.replace('value="'+esc(displayStation||'###')+'"','value="'+esc(displayStation||'###')+'" selected');
     return '<tr class="row-hover">'
       + '<td><span class="'+(live?'dotlive':'dotstale')+'" style="display:inline-block;margin-right:6px;"></span><b>'+esc(n)+'</b></td>'
       + '<td><select data-act="gmAssign" data-name="'+esc(n)+'">'+opts+'</select></td>'
@@ -4919,18 +5065,18 @@ function hospitalCapacityReadonly(){
 }
 function commanderRoster(){
   const names=Object.keys(STATE.roster);
-  const assignable=STATIONS.filter(function(s){return s.id!=='GM';});
-  const base=['<option value="">— ไม่มอบหมาย —</option>'].concat(assignable.map(function(s){return '<option value="'+s.id+'">'+s.label+'</option>';})).join('');
-  const rows=names.map(function(n){const r=STATE.roster[n];const live=(Date.now()-(r.lastSeen||0))<45000;const locked=r.station==='GM';const opts=base.replace('value="'+esc(r.station||'###')+'"','value="'+esc(r.station||'###')+'" selected');return '<tr><td><span class="'+(live?'dotlive':'dotstale')+'" style="display:inline-block;margin-right:6px;"></span><b>'+esc(n)+'</b></td><td>'+(locked?'<span class="badge neutral">GM · แก้ไขไม่ได้</span>':'<select data-act="gmAssign" data-name="'+esc(n)+'">'+opts+'</select>')+'</td><td class="hint">'+timeAgo(r.lastSeen)+'</td></tr>';}).join('');
+  const assignable=STATIONS.filter(function(s){return s.id!=='GM'&&(!transportCombined()||s.id!=='PARKING');});
+  const base=['<option value="">— ไม่มอบหมาย —</option>'].concat(assignable.map(function(s){return '<option value="'+s.id+'">'+esc(stationLabel(s.id))+'</option>';})).join('');
+  const rows=names.map(function(n){const r=STATE.roster[n];const live=(Date.now()-(r.lastSeen||0))<45000;const locked=r.station==='GM',displayStation=transportCombined()&&r.station==='PARKING'?'LOADING':r.station;const opts=base.replace('value="'+esc(displayStation||'###')+'"','value="'+esc(displayStation||'###')+'" selected');return '<tr><td><span class="'+(live?'dotlive':'dotstale')+'" style="display:inline-block;margin-right:6px;"></span><b>'+esc(n)+'</b></td><td>'+(locked?'<span class="badge neutral">GM · แก้ไขไม่ได้</span>':'<select data-act="gmAssign" data-name="'+esc(n)+'">'+opts+'</select>')+'</td><td class="hint">'+timeAgo(r.lastSeen)+'</td></tr>';}).join('');
   return '<div class="card"><h3>มอบหมายหน้าที่ผู้เล่น ('+names.length+')</h3><table><thead><tr><th>ชื่อ</th><th>หน้าที่</th><th>ล่าสุด</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function viewCommander(){
-  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">INCIDENT COMMAND</div><h1>'+stationHeading('commander','Commander Dashboard')+'</h1></div></div>'+commanderRoster()+'<div class="section-gap">'+hospitalCapacityReadonly()+'</div>';
+  return '<div class="station-hero"><div class="titlewrap"><div class="eyebrow">INCIDENT COMMAND</div><h1>'+stationHeading('commander','Commander Dashboard')+'</h1></div></div>'+commanderRoster()+commandVehicleRequestPanel()+'<div class="section-gap">'+hospitalCapacityReadonly()+'</div>';
 }
 function gmTabVehicles(){
   const elapsed=elapsedMinutes(STATE.gc);
-  const list=STATE.vehicles.map(function(v){const st=vehicleEffectiveStatus(v,elapsed);const assigned=STATE.patients.some(function(p){return p.stage==='TRANSFER'&&p.vehicle===v.name;});return '<tr><td><b>'+esc(v.name)+'</b></td><td>'+v.type+'</td><td>'+(st==='AVAILABLE'?'<span class="badge ok">ว่าง</span>':'<span class="badge wait">กำลังใช้งาน</span>')+'</td><td><button class="btn sm ghost" data-act="gmRemoveVehicle" data-vehicle="'+esc(v.name)+'" '+((st!=='AVAILABLE'||assigned)?'disabled':'')+'>ลบรถ</button></td></tr>';}).join('');
-  return '<div class="card"><h3>เพิ่ม / ลดจำนวนรถ</h3><div class="flexrow"><div class="flex1"><label class="label">ชื่อรถ เช่น ALS_3</label><input type="text" id="newVehicleName"></div><div class="flex1"><label class="label">ประเภท</label><select id="newVehicleType"><option>ALS</option><option>BLS</option><option>BUS</option></select></div><button class="btn primary" data-act="gmAddVehicle">+ เพิ่มรถ</button></div><table style="margin-top:14px;"><thead><tr><th>รถ</th><th>ประเภท</th><th>สถานะ</th><th></th></tr></thead><tbody>'+list+'</tbody></table><div class="hint" style="margin-top:10px;">การเลือกรถ เลือกผู้ป่วย และกด SEND รวมอยู่ในหน้าจอ Transfer แล้ว</div></div>';
+  const list=STATE.vehicles.map(function(v){const dep=vehicleDeploymentState(v,elapsed),assigned=STATE.patients.some(function(p){return p.stage==='TRANSFER'&&p.vehicle===v.name;}),labels={RESERVE:'กองสำรอง',TO_PARKING:'ไป Parking',PARKING:'Parking',TO_LOADING:'ไป '+(transportCombined()?'Loading + Parking':'Loading'),LOADING:transportCombined()?'Loading + Parking':'Loading',HOSPITAL_TRIP:'ส่งผู้ป่วย/กำลังกลับ '+(transportCombined()?'Loading + Parking':'Parking')};return '<tr><td><b>'+esc(v.name)+'</b></td><td>'+v.type+'</td><td><span class="badge '+(dep==='RESERVE'?'neutral':dep==='PARKING'||dep==='LOADING'?'ok':'wait')+'">'+(labels[dep]||dep)+'</span>'+(v.originHospital?'<div class="hint">ต้นทาง '+esc(v.originHospital)+'</div>':'')+'</td><td><button class="btn sm ghost" data-act="gmRemoveVehicle" data-vehicle="'+esc(v.name)+'" '+((dep!=='RESERVE'||assigned)?'disabled':'')+'>ลบรถ</button></td></tr>';}).join('');
+  return '<div class="card"><h3>คลังรถสำรอง</h3><div class="hint" style="margin-bottom:10px">หน้านี้ใช้เพิ่ม ลบ และตรวจสอบรถเท่านั้น · การตอบคำขอรถอยู่ใน GM Dashboard</div><div class="flexrow"><div class="flex1"><label class="label">ชื่อรถ เช่น ALS_3</label><input type="text" id="newVehicleName"></div><div class="flex1"><label class="label">ประเภท</label><select id="newVehicleType"><option>ALS</option><option>BLS</option><option>BUS</option></select></div><button class="btn primary" data-act="gmAddVehicle">+ เพิ่มรถ</button></div><table style="margin-top:14px;"><thead><tr><th>รถ</th><th>ประเภท</th><th>สถานะ</th><th></th></tr></thead><tbody>'+list+'</tbody></table><div class="hint" style="margin-top:10px;">รถที่เพิ่มจะอยู่ในกองสำรอง ต้องรอคำขอและ GM/Commander ระบุโรงพยาบาลต้นทางก่อนส่ง</div></div>';
 }
 
 function gmTabPatients(){
@@ -4966,6 +5112,7 @@ function timelineCategory(type){
   if(type==='GAME_START'||type==='GAME_END')return 'game';
   if(type.indexOf('TX_')>-1||type.indexOf('TREATMENT')>-1)return 'treatment';
   if(type.indexOf('TRANSFER')>-1||type.indexOf('DISPATCH')>-1||type.indexOf('HOSPITAL')>-1||type.indexOf('VEHICLE')>-1)return 'transfer';
+  if(type.indexOf('PARKING')>-1||type.indexOf('LOADING')>-1||type.indexOf('COMMAND_SEND')>-1)return 'transfer';
   if(type.indexOf('DEAD')>-1||type.indexOf('SURVIVED')>-1||type.indexOf('DISCHARGE')>-1)return 'outcome';
   return 'patient';
 }
@@ -4973,6 +5120,14 @@ function timelineDescription(entry){
   const type=entry.type||'', p=entry.patient, no=p?'No. '+p.id:'';
   if(type==='GAME_START')return 'เริ่มเกม MCI';
   if(type==='GAME_END')return 'จบเกม MCI';
+  if(type.indexOf('VEHICLE_REQUEST LOADING_TO_PARKING ')===0)return 'Loading ขอรถ '+type.slice(35)+' จาก Parking';
+  if(type.indexOf('VEHICLE_REQUEST PARKING_TO_COMMAND ')===0)return 'Parking ขอรถ '+type.slice(35)+' จาก Command';
+  if(type.indexOf('PARKING_SEND_LOADING ')===0)return 'Parking ส่ง '+type.slice(21)+' ไป Loading';
+  if(type.indexOf('COMMAND_SEND_PARKING ')===0)return 'Command ส่งรถไป Parking: '+type.slice(21);
+  if(type.indexOf('COMMAND_SEND_LOADING ')===0)return 'Command ส่งรถไป Loading + Parking: '+type.slice(21);
+  if(type==='REGISTERED_AT_SECONDARY')return no+' ลงทะเบียนครั้งแรกที่ Secondary';
+  if(type==='PRIMARY_AUTO_GREEN')return 'ระบบกำหนด Primary '+no+' = GREEN อัตโนมัติ';
+  if(type.indexOf('PRIMARY_CORRECTED_AT_SECONDARY ')===0)return 'Secondary แก้ Primary '+no+' = '+type.slice(31);
   if(type==='REGISTERED')return no+' เข้าสู่ Primary Triage';
   if(type.indexOf('PRIMARY_CLASSIFY ')===0)return 'Primary Triage '+no+' = '+type.slice(17);
   if(type.indexOf('SECONDARY_CLASSIFY ')===0)return 'Secondary Triage '+no+' = '+type.slice(19);
@@ -5008,6 +5163,7 @@ function timelineDescription(entry){
 function buildMasterTimeline(elapsed){
   let seq=0, entries=[];
   if(STATE.gc.startTime)entries.push({t:0,type:'GAME_START',by:STATE.gc.startedBy||'GM',seq:seq++});
+  (STATE.gc.operationsLog||[]).forEach(function(e){entries.push({t:Number(e.t)||0,type:e.type,by:e.by||'',seq:seq++});});
   STATE.patients.forEach(function(p){
     (p.events||[]).forEach(function(e){
       if(e.type.indexOf('HOSPITAL_TX_START ')===0||e.type.indexOf('HOSPITAL_TX_DONE ')===0)return;
@@ -5044,7 +5200,7 @@ function debriefTriageRecords(field){
   const upper=field==='primary'?'PRIMARY':'SECONDARY';
   return STATE.patients.filter(function(p){return !!p[field];}).map(function(p){
     const caseObj=findCase(STATE.cases,p.id)||{};
-    const event=latestEventByPrefix(p,[upper+'_CLASSIFY '])||latestEventByPrefix(p,[upper+'_SECONDARY',upper+'_TX',upper+'_DISCHARGE']);
+    const event=latestEventByPrefix(p,[upper+'_CLASSIFY ',upper+'_AUTO_',upper+'_CORRECTED_'])||latestEventByPrefix(p,[upper+'_SECONDARY',upper+'_TX',upper+'_DISCHARGE']);
     return {patient:p,guess:p[field],answer:caseObj[field],result:triageDecisionResult(p[field],caseObj[field]),by:event&&event.by||'—'};
   });
 }
@@ -5086,7 +5242,7 @@ function actorBreakdown(records){
 function percentOf(part,total){return total?round1(part*100/total)+'%':'—';}
 function debriefEventCategory(type){
   if(type==='GAME_START'||type==='GAME_END')return 'GAME';
-  if(type.indexOf('PRIMARY_')===0||type==='REGISTERED')return 'PRIMARY';
+  if(type.indexOf('PRIMARY_')===0||type==='REGISTERED'||type==='REGISTERED_AT_SECONDARY')return 'PRIMARY';
   if(type.indexOf('SECONDARY_')===0)return 'SECONDARY';
   if(type.indexOf('TX_')>-1||type.indexOf('TREATMENT')>-1)return 'TREATMENT';
   return 'TRANSFER';
@@ -5097,6 +5253,10 @@ function eventCorrectness(entry){
   const caseObj=findCase(STATE.cases,p.id)||{};
   if(type.indexOf('PRIMARY_CLASSIFY ')===0){
     const result=triageDecisionResult(type.slice(17),caseObj.primary);
+    return {ok:result==='CORRECT',text:result==='CORRECT'?'Primary Triage ถูกต้อง ✅':'Primary Triage ไม่ถูกต้อง ❌ ('+(result==='OVER'?'Overtriage':result==='UNDER'?'Undertriage':'Wrong')+')'};
+  }
+  if(type==='PRIMARY_AUTO_GREEN'||type.indexOf('PRIMARY_CORRECTED_AT_SECONDARY ')===0){
+    const guess=type==='PRIMARY_AUTO_GREEN'?'GREEN':type.slice(31),result=triageDecisionResult(guess,caseObj.primary);
     return {ok:result==='CORRECT',text:result==='CORRECT'?'Primary Triage ถูกต้อง ✅':'Primary Triage ไม่ถูกต้อง ❌ ('+(result==='OVER'?'Overtriage':result==='UNDER'?'Undertriage':'Wrong')+')'};
   }
   if(type.indexOf('SECONDARY_CLASSIFY ')===0){
@@ -5145,6 +5305,8 @@ function gmTabDebrief(){
   const treatmentRecords=debriefTreatmentRecords(),treatmentGood=treatmentRecords.filter(function(r){return r.appropriate;});
   const vehicleRecords=debriefVehicleRecords(),vehicleGood=vehicleRecords.filter(function(r){return r.appropriate;});
   const dead=STATE.patients.filter(function(p){return patientIsDead(p,elapsed)||String(p.closedReason||'').indexOf('DEAD')===0;});
+  const vehicleReqs=vehicleRequests(),loadingFulfilled=vehicleReqs.filter(function(r){return r.level==='LOADING_TO_PARKING'&&r.status==='FULFILLED';}),commandFulfilled=vehicleReqs.filter(function(r){return r.level==='PARKING_TO_COMMAND'&&r.status==='FULFILLED';});
+  const loadingResponse=avgMetric(loadingFulfilled.map(function(r){return Number(r.fulfilledAt)-Number(r.requestedAt);})),commandResponse=avgMetric(commandFulfilled.map(function(r){return Number(r.fulfilledAt)-Number(r.requestedAt);}));
   const players=uniq(entries.map(function(e){return e.by;}).filter(function(name){return name&&name!=='SYSTEM'&&name!=='HOSPITAL';}).concat(Object.keys(STATE.roster))).sort();
   if(STATE.debriefPlayerFilter!=='ALL'&&players.indexOf(STATE.debriefPlayerFilter)<0)STATE.debriefPlayerFilter='ALL';
   const categoryFilters=STATE.debriefCategoryFilters||{PRIMARY:true,SECONDARY:true,TREATMENT:true,TRANSFER:true};
@@ -5179,6 +5341,10 @@ function gmTabDebrief(){
     +statCard('Treatment เหมาะสม',percentOf(treatmentGood.length,treatmentRecords.length)+'<div class="summary-detail">'+treatmentGood.length+'/'+treatmentRecords.length+' รายการ</div>')
     +statCard('เลือกรถเหมาะสม',percentOf(vehicleGood.length,vehicleRecords.length)+'<div class="summary-detail">'+vehicleGood.length+'/'+vehicleRecords.length+' ราย</div>')
     +statCard('Dead',dead.length+' · '+percentOf(dead.length,STATE.patients.length)+'<div class="summary-detail">'+(dead.length?'No. '+dead.map(function(p){return esc(p.id);}).join(', '):'ไม่มี')+'</div>')
+    +'</div><div class="grid cols-3 section-gap">'
+    +statCard('Loading → Parking',loadingResponse==='—'?'—':loadingResponse+' นาที<div class="summary-detail">ตอบคำขอ '+loadingFulfilled.length+' ครั้ง</div>')
+    +statCard('Parking → Command',commandResponse==='—'?'—':commandResponse+' นาที<div class="summary-detail">จัดรถ '+commandFulfilled.length+' ครั้ง</div>')
+    +statCard('คำขอค้าง',vehicleReqs.filter(function(r){return r.status==='PENDING';}).length+'<div class="summary-detail">ยังไม่ได้ดำเนินการ</div>')
     +'</div><div class="card section-gap"><div class="flexrow" style="justify-content:space-between;"><div><h3 style="margin-bottom:3px;">Master Event Timeline</h3><div class="hint">เริ่ม '+(STATE.gc.startTime?timelineDateTime(0):'—')+' · จบ '+endText+' · ทั้งหมด '+entries.length+' เหตุการณ์</div></div></div>'
     +'<div class="timeline-filter-row"><div class="timeline-filter-label">กรองตาม Player</div><div class="timeline-filter">'+playerButtons+'</div></div>'
     +'<div class="timeline-filter-row"><div class="timeline-filter-label">กรองตามประเภทงาน · เปิด/ปิดร่วมกับ Player ได้</div><div class="timeline-filter">'+categoryButtons+'</div></div>'
@@ -5210,8 +5376,9 @@ function animateDispatchExit(){
     const vehicle=document.getElementById('dispatchVehicleVisual');
     const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!vehicle||reduced){resolve();return;}
+    vehicleAnimationBusy=true;
     vehicle.classList.add('dispatching-vehicle');
-    let done=false;const finish=function(){if(done)return;done=true;resolve();};
+    let done=false;const finish=function(){if(done)return;done=true;vehicleAnimationBusy=false;if(backgroundRenderPending)scheduleBackgroundRender();resolve();};
     vehicle.addEventListener('animationend',finish,{once:true});
     setTimeout(finish,850);
   });
@@ -5245,6 +5412,21 @@ async function handleClick(el){
   if(act==='gmStart'){ await gmStartGame(); return; }
   if(act==='gmEnd'){ await gmEndGame(); return; }
   if(act==='gmStartDebrief'){ await gmStartDebrief(); return; }
+  if(act==='vehicleRequest'){await createVehicleRequest(el.dataset.level,el.dataset.type,val(el.dataset.qtyInput));return;}
+  if(act==='parkingSendLoading'){
+    if(STATE.me.station!=='PARKING'&&!(transportCombined()&&STATE.me.station==='LOADING')){toast('เฉพาะ Parking เท่านั้นที่ส่งรถไป Loading ได้','err');return;}
+    await parkingSendToLoading(el.dataset.vehicle,el.dataset.request);return;
+  }
+  if(act==='combinedMoveLoading'){
+    if(!transportCombined()||STATE.me.station!=='LOADING'){toast('ใช้ได้เฉพาะ Loading ในโหมด Extern','err');return;}
+    await combinedMoveToLoading(el.dataset.vehicle);return;
+  }
+  if(act==='commandSendParking'){
+    if(['GM','COMMANDER'].indexOf(STATE.me.station)<0){toast('เฉพาะ GM/Commander เท่านั้นที่ส่งรถจากโรงพยาบาลได้','err');return;}
+    const key=commandRequestDomKey(el.dataset.request),saved=(STATE.ui.commandRequests&&STATE.ui.commandRequests[el.dataset.request])||{},vehicle=saved.vehicle||val('cmd_req_vehicle_'+key),hospital=saved.hospital||val('cmd_req_hosp_'+key);
+    if(!vehicle||!hospital){toast('เลือกรถและโรงพยาบาลต้นทางก่อน','err');return;}
+    const sent=await commandSendVehicleToParking(el.dataset.request,vehicle,hospital);if(sent&&STATE.ui.commandRequests)delete STATE.ui.commandRequests[el.dataset.request];saveLocalSession();return;
+  }
   if(act==='gmReset'){ if(confirm('ยืนยัน Reset เกม? ข้อมูลผู้ป่วยทั้งหมดจะถูกลบ')) await gmResetGame(); return; }
   if(act==='sceneImport'){ window.SceneApp && window.SceneApp.triggerImport(); return; }
   if(act==='sceneExport'){ window.SceneApp && window.SceneApp.exportFile(); return; }
@@ -5281,14 +5463,15 @@ async function handleClick(el){
     return;
   }
   if(act==='gmSaveConfig'){
-    await gmUpdateConfig({
+    const ok=await gmUpdateConfig({
       maxGameMin: Number(val('cfgMaxMin'))||60,
+      transportMode: val('cfgTransportMode')==='COMBINED'?'COMBINED':'SPLIT',
       transitSpeeds: {
         walkKmh: Number(val('cfgWalkKmh'))||4,
         carryKmh: Number(val('cfgCarryKmh'))||3
       }
     });
-    toast('บันทึกการตั้งค่าแล้ว','ok');
+    if(ok)toast('บันทึกการตั้งค่าแล้ว','ok');
     return;
   }
   if(act==='gmRemove'){ await gmRemovePlayer(el.dataset.name); return; }
@@ -5359,6 +5542,7 @@ async function handleClick(el){
     setFocusedPatient(el.dataset.key,null);render(true);return;
   }
   if(act==='primaryRegister'){await primaryRegister(val(el.dataset.input||'primaryIdInput'));const inp=document.getElementById(el.dataset.input||'primaryIdInput');if(inp)inp.value='';return;}
+  if(act==='secondaryRegister'){await secondaryRegisterOrOpen(val(el.dataset.input||'secondaryIdInput'));const inp=document.getElementById(el.dataset.input||'secondaryIdInput');if(inp)inp.value='';return;}
   if(act==='primarySet'){ await primarySetField(el.dataset.pid, el.dataset.field, el.dataset.value); return; }
   if(act==='primarySend'){ await primarySend(el.dataset.pid, el.dataset.dest); return; }
   if(act==='secondarySet'){ await secondarySetField(el.dataset.pid, el.dataset.field, el.dataset.value); return; }
@@ -5424,7 +5608,15 @@ async function handleChange(el){
     }
     return;
   }
+  if(act==='transportModeChange'){
+    const ok=await gmUpdateConfig({transportMode:el.value==='COMBINED'?'COMBINED':'SPLIT'});
+    if(ok)toast(el.value==='COMBINED'?'เปลี่ยนเป็น Extern Mode · Loading + Parking แล้ว':'เปลี่ยนเป็น Resident Mode · แยก Loading / Parking แล้ว','ok');return;
+  }
   if(act==='gmAssign'){ await gmAssignStation(el.dataset.name, el.value); return; }
+  if(act==='commandRequestSelection'){
+    if(!STATE.ui.commandRequests)STATE.ui.commandRequests={};
+    const current=Object.assign({},STATE.ui.commandRequests[el.dataset.request]||{});current[el.dataset.field]=el.value||'';STATE.ui.commandRequests[el.dataset.request]=current;saveLocalSession();return;
+  }
   if(act==='gmTriageResourceToggle'){ await gmUpdateResource(el.dataset.item,{triageAllowed:el.checked}); return; }
   if(act==='fastTreatmentToggle'){ await gmSetFastTreatment(el.checked); return; }
   if(act==='hospitalTreatmentToggle'){ await gmSetHospitalTreatment(el.checked); return; }
@@ -5482,6 +5674,7 @@ function boot(){
     const act = el.dataset.enterAct;
     if(act==='join') handleClick({dataset:{act:'join'}});
     else if(act==='primaryRegister') handleClick({dataset:{act:'primaryRegister',input:el.id}});
+    else if(act==='secondaryRegister') handleClick({dataset:{act:'secondaryRegister',input:el.id}});
     else if(act==='patientFocus')handleClick({dataset:{act:'patientFocus',key:el.dataset.focusKey,input:el.id}});
   });
   const restored=restoreLocalSession();

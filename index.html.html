@@ -2024,6 +2024,31 @@ async function kvPatientsTransaction(mutator){
     return {committed:false,error:e};
   }
 }
+async function kvCasesTransaction(mutator){
+  if(!fbReady)return {committed:false,cases:STATE.cases.slice()};
+  try{
+    const ref=fbDb.ref(DB_ROOT+'/'+KEYS.cases);
+    const initialSnap=await ref.once('value');
+    const initialRaw=initialSnap.exists()?initialSnap.val():JSON.stringify(DEFAULT_CASES);
+    const result=await ref.transaction(function(raw){
+      if(raw==null)raw=initialRaw;
+      let cases=[];
+      try{cases=typeof raw==='string'?JSON.parse(raw):(raw||[]);}catch(e){cases=[];}
+      const next=mutator(Array.isArray(cases)?cases:[]);
+      if(next==null)return;
+      return JSON.stringify(next);
+    });
+    STATE.fbConnected=true;
+    const savedRaw=result.snapshot.val();
+    let saved=[];
+    try{saved=typeof savedRaw==='string'?JSON.parse(savedRaw):(savedRaw||[]);}catch(e){saved=[];}
+    return {committed:result.committed,cases:Array.isArray(saved)?saved:[]};
+  }catch(e){
+    console.error('kvCasesTransaction failed',e);
+    STATE.fbConnected=false;STATE.fbErrorMsg=(e&&e.message)||String(e);
+    return {committed:false,cases:STATE.cases.slice(),error:e};
+  }
+}
 async function kvLocksTransaction(mutator){
   if(!fbReady)return {committed:false,locks:{}};
   try{
@@ -2747,6 +2772,49 @@ function timeAgo(ts){
 /* ============================================================
    4) STATE
 ============================================================ */
+function emptyCaseDraft(){
+  return {mode:'add',originalId:null,id:'',canWalk:'yes',timeLimit:'30',vehicle:'',primary:'RED',secondary:'RED',dispo:'Transfer',reqTx:['','','']};
+}
+function normalizeCaseDraft(raw){
+  raw=raw&&typeof raw==='object'?raw:{};
+  const colors=['RED','YELLOW','GREEN','BLACK'];
+  const req=Array.isArray(raw.reqTx)?raw.reqTx.slice(0,3):[];
+  while(req.length<3)req.push('');
+  return {
+    mode:raw.mode==='edit'?'edit':'add',
+    originalId:raw.originalId==null?null:String(raw.originalId),
+    id:raw.id==null?'':String(raw.id),
+    canWalk:raw.canWalk==='no'?'no':'yes',
+    timeLimit:raw.timeLimit==null?'30':String(raw.timeLimit),
+    vehicle:['ALS','BLS','BUS'].indexOf(raw.vehicle)>-1?raw.vehicle:'',
+    primary:colors.indexOf(raw.primary)>-1?raw.primary:'RED',
+    secondary:colors.indexOf(raw.secondary)>-1?raw.secondary:'RED',
+    dispo:raw.dispo==='discharge'?'discharge':'Transfer',
+    reqTx:req.map(function(item){return item==null?'':String(item);})
+  };
+}
+function caseDraftFromCase(c){
+  return normalizeCaseDraft({mode:'edit',originalId:c.id,id:c.id,canWalk:c.canWalk,timeLimit:c.timeLimit,vehicle:c.vehicle||'',primary:c.primary,secondary:c.secondary,dispo:c.dispo,reqTx:c.reqTx||[]});
+}
+function currentCaseDraft(){
+  if(!STATE.ui.caseDraft)STATE.ui.caseDraft=emptyCaseDraft();
+  return STATE.ui.caseDraft;
+}
+function resetCaseDraft(){STATE.ui.caseDraft=emptyCaseDraft();}
+function captureCaseDraftValue(el){
+  const field=el&&el.dataset&&el.dataset.caseField;
+  if(!field)return;
+  const draft=currentCaseDraft();
+  if(field==='reqTx'){
+    const index=Math.max(0,Math.min(2,Number(el.dataset.caseIndex)||0));
+    draft.reqTx[index]=el.value;
+  }else draft[field]=el.value;
+  saveLocalSession();
+}
+function syncCaseDraftFromDom(){
+  document.querySelectorAll('#caseEditorCard [data-case-field]').forEach(captureCaseDraftValue);
+  return currentCaseDraft();
+}
 const STATE = {
   me: {name:null, station:null, gmAuthorized:false, clientId:null},
   gc: JSON.parse(JSON.stringify(DEFAULT_GC)),
@@ -2770,6 +2838,7 @@ const STATE = {
     focused:{PRIMARY:null,SECONDARY:null,TX_RED:null,TX_YELLOW:null,TX_GREEN:null},
     transfer:{vehicle:null,patientIds:[],hospital:null},
     commandRequests:{},
+    caseDraft:emptyCaseDraft(),
     communication:{open:false,activeZone:null,readAt:{},composerMode:null,notice:''}
   },
   _snapshot:null
@@ -2803,6 +2872,7 @@ function restoreLocalSession(){
       if(!Array.isArray(STATE.ui.transfer.patientIds))STATE.ui.transfer.patientIds=[];
     }
     if(saved.ui&&saved.ui.commandRequests)STATE.ui.commandRequests=Object.assign({},saved.ui.commandRequests);
+    if(saved.ui&&saved.ui.caseDraft)STATE.ui.caseDraft=normalizeCaseDraft(saved.ui.caseDraft);
     if(saved.ui&&saved.ui.communication)STATE.ui.communication=Object.assign({},STATE.ui.communication,saved.ui.communication,{readAt:Object.assign({},STATE.ui.communication.readAt,saved.ui.communication.readAt||{})});
     return true;
   }catch(e){return false;}
@@ -3460,6 +3530,7 @@ let backgroundRenderPending=false;
 let actionPointerBusy=false;
 let vehicleAnimationBusy=false;
 let selectMenuBusy=false;
+let caseFormBusy=false;
 let derivedBusy=false;
 
 function decodeRealtimeValue(raw,fallback){
@@ -3532,7 +3603,7 @@ async function runDerivedStateMaintenance(){
    renders triggered directly by the user's own click/change always run
    in full via render()/render(true) as before. */
 function backgroundRender(){
-  if(selectMenuBusy||actionPointerBusy||vehicleAnimationBusy){
+  if(selectMenuBusy||caseFormBusy||actionPointerBusy||vehicleAnimationBusy){
     backgroundRenderPending=true;
     updateLiveTimersOnly();
     return;
@@ -3717,7 +3788,7 @@ async function leaveCurrentPlayer(){
   STATE.me.station=null;
   STATE.me.gmAuthorized=false;
   STATE.me.clientId=null;
-  STATE.ui={focused:{PRIMARY:null,SECONDARY:null,TX_RED:null,TX_YELLOW:null,TX_GREEN:null},transfer:{vehicle:null,patientIds:[],hospital:null},commandRequests:{},communication:{open:false,activeZone:null,readAt:{},composerMode:null,notice:''}};
+  STATE.ui={focused:{PRIMARY:null,SECONDARY:null,TX_RED:null,TX_YELLOW:null,TX_GREEN:null},transfer:{vehicle:null,patientIds:[],hospital:null},commandRequests:{},caseDraft:emptyCaseDraft(),communication:{open:false,activeZone:null,readAt:{},composerMode:null,notice:''}};
   clearLocalSession();
 
   if(leavingName){
@@ -3840,22 +3911,48 @@ async function gmSetExternVehiclesReady(enabled){
   toast(enabled?'เปิดแล้ว — เกม Extern รอบถัดไปรถทุกคันจะพร้อมทันที':'ปิดแล้ว — เกม Extern รอบถัดไปต้องขอรถจาก Command/GM','ok');
 }
 async function gmAddCase(caseObj){
-  let ok=true;
-  await kvUpdate(KEYS.cases, DEFAULT_CASES, function(cases){
-    if(cases.some(function(c){ return String(c.id)===String(caseObj.id); })){ ok=false; return cases; }
+  let duplicate=false;
+  const result=await kvCasesTransaction(function(cases){
+    duplicate=false;
+    if(cases.some(function(c){ return normU(c.id)===normU(caseObj.id); })){duplicate=true;return null;}
     return cases.concat([caseObj]);
   });
-  if(!ok){ toast('มี Patient_ID นี้อยู่แล้วในชุดโจทย์','err'); return; }
-  STATE.cases = await kvGet(KEYS.cases, DEFAULT_CASES);
+  if(!result.committed){toast(duplicate?'มี Patient_ID นี้อยู่แล้วในชุดโจทย์':'บันทึกเคสไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่','err');return false;}
+  STATE.cases=result.cases;
   toast('เพิ่มเคส #'+caseObj.id+' แล้ว','ok');
-  render();
+  return true;
+}
+async function gmUpdateCase(id,caseObj){
+  let found=false;
+  const result=await kvCasesTransaction(function(cases){
+    found=false;
+    const index=cases.findIndex(function(c){return normU(c.id)===normU(id);});
+    if(index<0)return null;
+    found=true;
+    const next=cases.slice();
+    next[index]=Object.assign({},cases[index],caseObj,{id:cases[index].id});
+    return next;
+  });
+  if(!result.committed){toast(found?'บันทึกการแก้ไขไม่สำเร็จ กรุณาลองใหม่':'ไม่พบเคส #'+id+' อาจถูกลบจากหน้าจออื่นแล้ว','err');return false;}
+  STATE.cases=result.cases;
+  toast('บันทึกการแก้ไขเคส #'+id+' แล้ว','ok');
+  return true;
 }
 async function gmDeleteCase(id){
-  await kvUpdate(KEYS.cases, DEFAULT_CASES, function(cases){
-    return cases.filter(function(c){ return String(c.id)!==String(id); });
+  let found=false;
+  const result=await kvCasesTransaction(function(cases){
+    found=false;
+    const next=cases.filter(function(c){const keep=normU(c.id)!==normU(id);if(!keep)found=true;return keep;});
+    return found?next:null;
   });
-  STATE.cases = await kvGet(KEYS.cases, DEFAULT_CASES);
+  if(!result.committed){toast(found?'ลบเคสไม่สำเร็จ กรุณาลองใหม่':'ไม่พบเคส #'+id,'err');return false;}
+  STATE.cases=result.cases;
+  const draft=currentCaseDraft();
+  if(draft.mode==='edit'&&normU(draft.originalId)===normU(id))resetCaseDraft();
+  saveLocalSession();
   render();
+  toast('ลบเคส #'+id+' แล้ว','ok');
+  return true;
 }
 async function gmAddVehicle(name, type){
   name = normU(name); type = normU(type);
@@ -4582,9 +4679,11 @@ function render(force){
     renderGuardsBound=true;
     app.addEventListener('pointerdown',function(e){if(e.target.closest('[data-act]'))actionPointerBusy=true;if(e.target.closest('select'))selectMenuBusy=true;},true);
     app.addEventListener('focusin',function(e){if(e.target.tagName==='SELECT')selectMenuBusy=true;},true);
+    app.addEventListener('focusin',function(e){if(e.target.closest('[data-case-field]'))caseFormBusy=true;},true);
     app.addEventListener('change',function(e){if(e.target.closest('select')){selectMenuBusy=false;if(backgroundRenderPending)scheduleBackgroundRender();}},true);
     app.addEventListener('focusout',function(e){if(e.target.tagName==='SELECT'){selectMenuBusy=false;if(backgroundRenderPending)scheduleBackgroundRender();}},true);
-    window.addEventListener('pointerup',function(){if(!actionPointerBusy)return;actionPointerBusy=false;if(backgroundRenderPending&&!selectMenuBusy)scheduleBackgroundRender();},true);
+    app.addEventListener('focusout',function(e){if(!e.target.closest('[data-case-field]'))return;setTimeout(function(){caseFormBusy=!!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('[data-case-field]'));if(!caseFormBusy&&backgroundRenderPending)scheduleBackgroundRender();},0);},true);
+    window.addEventListener('pointerup',function(){if(!actionPointerBusy)return;actionPointerBusy=false;if(backgroundRenderPending&&!selectMenuBusy&&!caseFormBusy)scheduleBackgroundRender();},true);
     window.addEventListener('pointercancel',function(){actionPointerBusy=false;selectMenuBusy=false;if(backgroundRenderPending)scheduleBackgroundRender();},true);
   }
   app.innerHTML = buildView();
@@ -5878,10 +5977,19 @@ function gmTabRoster(){
     + '</tbody></table></div>';
 }
 
+function caseOption(value,label,current){
+  return '<option value="'+esc(value)+'"'+(String(value)===String(current)?' selected':'')+'>'+esc(label==null?value:label)+'</option>';
+}
 function gmTabCases(){
-  const rows = STATE.cases.slice().sort(function(a,b){return a.id-b.id;}).map(function(c){
-    return '<tr class="row-hover">'
-      + '<td class="pid" style="font-size:13px;">#'+esc(c.id)+'</td>'
+  let draft=currentCaseDraft();
+  if(draft.mode==='edit'&&!STATE.cases.some(function(c){return normU(c.id)===normU(draft.originalId);})){
+    resetCaseDraft();draft=currentCaseDraft();saveLocalSession();
+  }
+  const editing=draft.mode==='edit';
+  const rows=STATE.cases.slice().sort(function(a,b){return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});}).map(function(c){
+    const active=editing&&normU(c.id)===normU(draft.originalId);
+    return '<tr class="row-hover"'+(active?' style="background:rgba(47,211,199,.08);"':'')+'>'
+      + '<td class="pid" style="font-size:13px;">#'+esc(c.id)+(active?' <span class="badge ok">กำลังแก้ไข</span>':'')+'</td>'
       + '<td>'+(c.canWalk==='yes'?'🚶':'🛏️')+'</td>'
       + '<td>'+(c.reqTx&&c.reqTx.length?esc(c.reqTx.join(', ')):'<span class="hint">ไม่มี</span>')+'</td>'
       + '<td>'+c.timeLimit+' น.</td>'
@@ -5889,38 +5997,42 @@ function gmTabCases(){
       + '<td>'+triageBadge(c.secondary)+'</td>'
       + '<td>'+esc(c.dispo||'')+'</td>'
       + '<td>'+esc(c.vehicle||'—')+'</td>'
-      + '<td><button class="btn sm ghost" data-act="gmDeleteCase" data-id="'+esc(c.id)+'">ลบ</button></td>'
+      + '<td><div class="flexrow" style="flex-wrap:nowrap;"><button class="btn sm ghost" data-act="gmEditCase" data-id="'+esc(c.id)+'">แก้ไข</button><button class="btn sm danger" data-act="gmDeleteCase" data-id="'+esc(c.id)+'">ลบ</button></div></td>'
       + '</tr>';
   }).join('');
 
-  const resourceOptions = ['<option value="">— ไม่มี —</option>'].concat(
-    STATE.resources.map(function(r){ return '<option value="'+esc(r.item)+'">'+esc(r.item)+'</option>'; })
-  ).join('');
+  function resourceOptions(selected){
+    const known=STATE.resources.some(function(r){return r.item===selected;});
+    const options=[caseOption('','— ไม่มี —',selected)];
+    if(selected&&!known)options.push(caseOption(selected,selected+' (ไม่อยู่ในคลังปัจจุบัน)',selected));
+    return options.concat(STATE.resources.map(function(r){return caseOption(r.item,r.item,selected);})).join('');
+  }
+  const colorOptions=function(selected){return TRIAGE_COLORS.map(function(color){return caseOption(color,color,selected);}).join('');};
 
   return ''
   + '<div class="card"><h3>ชุดโจทย์ทั้งหมด ('+STATE.cases.length+' เคส)</h3>'
   +   '<div class="hint" style="margin-bottom:10px;">Required Tx / Primary / Secondary เป็นข้อมูลลับ ไม่แสดงให้ผู้เล่นเห็น</div>'
-  +   '<table><thead><tr><th>ID</th><th>Walk</th><th>Req Tx</th><th>Limit</th><th>Primary</th><th>Secondary</th><th>Dispo</th><th>Vehicle</th><th></th></tr></thead><tbody>'
+  +   '<table><thead><tr><th>ID</th><th>Walk</th><th>Req Tx</th><th>Limit</th><th>Primary</th><th>Secondary</th><th>Dispo</th><th>Vehicle</th><th>จัดการ</th></tr></thead><tbody>'
   +   rows
   +   '</tbody></table>'
   + '</div>'
-  + '<div class="card section-gap">'
-  +   '<h3>เพิ่มเคสใหม่</h3>'
-  +   '<div class="grid cols-4">'
-  +     '<div><label class="label">Patient ID</label><input type="text" id="ncId"></div>'
-  +     '<div><label class="label">Can Walk</label><select id="ncWalk"><option value="yes">เดินได้</option><option value="no">นอน</option></select></div>'
-  +     '<div><label class="label">Time Limit (นาที)</label><input type="number" id="ncLimit" value="30"></div>'
-  +     '<div><label class="label">Required Vehicle</label><select id="ncVehicle"><option value="">— ไม่กำหนด —</option><option value="ALS">ALS</option><option value="BLS">BLS</option><option value="BUS">BUS</option></select></div>'
-  +     '<div><label class="label">Correct Primary</label><select id="ncPrimary">'+TRIAGE_COLORS.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('')+'</select></div>'
-  +     '<div><label class="label">Correct Secondary</label><select id="ncSecondary">'+TRIAGE_COLORS.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('')+'</select></div>'
-  +     '<div><label class="label">Dispo (ข้อมูลอ้างอิง)</label><select id="ncDispo"><option value="Transfer">Transfer</option><option value="discharge">Discharge</option></select></div>'
+  + '<div class="card section-gap" id="caseEditorCard">'
+  +   '<div class="flexrow" style="justify-content:space-between;align-items:flex-start;"><div><h3>'+(editing?'แก้ไขเคส #'+esc(draft.originalId):'เพิ่มเคสใหม่')+'</h3><div class="hint">ข้อมูลที่กรอกจะคงอยู่แม้หน้าจอได้รับข้อมูลใหม่จาก Firebase</div></div>'+(editing?'<span class="badge ok">EDIT MODE</span>':'')+'</div>'
+  +   '<div class="grid cols-4" style="margin-top:12px;">'
+  +     '<div><label class="label">Patient ID'+(editing?' (แก้ไขไม่ได้)':'')+'</label><input type="text" id="ncId" data-case-field="id" value="'+esc(draft.id)+'" '+(editing?'disabled':'')+'></div>'
+  +     '<div><label class="label">Can Walk</label><select id="ncWalk" data-case-field="canWalk">'+caseOption('yes','เดินได้',draft.canWalk)+caseOption('no','นอน',draft.canWalk)+'</select></div>'
+  +     '<div><label class="label">Time Limit (นาที)</label><input type="number" min="0.1" step="0.1" id="ncLimit" data-case-field="timeLimit" value="'+esc(draft.timeLimit)+'"></div>'
+  +     '<div><label class="label">Required Vehicle</label><select id="ncVehicle" data-case-field="vehicle">'+caseOption('','— ไม่กำหนด —',draft.vehicle)+caseOption('ALS','ALS',draft.vehicle)+caseOption('BLS','BLS',draft.vehicle)+caseOption('BUS','BUS',draft.vehicle)+'</select></div>'
+  +     '<div><label class="label">Correct Primary</label><select id="ncPrimary" data-case-field="primary">'+colorOptions(draft.primary)+'</select></div>'
+  +     '<div><label class="label">Correct Secondary</label><select id="ncSecondary" data-case-field="secondary">'+colorOptions(draft.secondary)+'</select></div>'
+  +     '<div><label class="label">Dispo (ข้อมูลอ้างอิง)</label><select id="ncDispo" data-case-field="dispo">'+caseOption('Transfer','Transfer',draft.dispo)+caseOption('discharge','Discharge',draft.dispo)+'</select></div>'
   +   '</div>'
   +   '<div class="grid cols-3" style="margin-top:10px;">'
-  +     '<div><label class="label">Required Tx 1</label><select id="ncReq1">'+resourceOptions+'</select></div>'
-  +     '<div><label class="label">Required Tx 2</label><select id="ncReq2">'+resourceOptions+'</select></div>'
-  +     '<div><label class="label">Required Tx 3</label><select id="ncReq3">'+resourceOptions+'</select></div>'
+  +     '<div><label class="label">Required Tx 1</label><select id="ncReq1" data-case-field="reqTx" data-case-index="0">'+resourceOptions(draft.reqTx[0])+'</select></div>'
+  +     '<div><label class="label">Required Tx 2</label><select id="ncReq2" data-case-field="reqTx" data-case-index="1">'+resourceOptions(draft.reqTx[1])+'</select></div>'
+  +     '<div><label class="label">Required Tx 3</label><select id="ncReq3" data-case-field="reqTx" data-case-index="2">'+resourceOptions(draft.reqTx[2])+'</select></div>'
   +   '</div>'
-  +   '<button class="btn primary" data-act="gmAddCaseBtn" style="margin-top:12px;">+ เพิ่มเคส</button>'
+  +   '<div class="flexrow" style="margin-top:12px;"><button class="btn primary" data-act="gmSaveCaseBtn">'+(editing?'💾 บันทึกการแก้ไข':'+ เพิ่มเคส')+'</button><button class="btn ghost" data-act="gmClearCaseDraft">'+(editing?'ยกเลิกการแก้ไข':'ล้างฟอร์ม')+'</button></div>'
   + '</div>';
 }
 
@@ -6360,16 +6472,31 @@ async function handleClick(el){
   if(act==='gmAddVehicle'){ await gmAddVehicle(val('newVehicleName'),val('newVehicleType')); return; }
   if(act==='gmRemoveVehicle'){ await gmRemoveVehicle(el.dataset.vehicle); return; }
   if(act==='gmDeleteCase'){ if(confirm('ลบเคส #'+el.dataset.id+' ?')) await gmDeleteCase(el.dataset.id); return; }
-  if(act==='gmAddCaseBtn'){
-    const id = val('ncId').trim();
+  if(act==='gmEditCase'){
+    const c=findCase(STATE.cases,el.dataset.id);
+    if(!c){toast('ไม่พบเคส #'+el.dataset.id+' อาจถูกลบจากหน้าจออื่นแล้ว','err');return;}
+    STATE.ui.caseDraft=caseDraftFromCase(c);saveLocalSession();render(true);
+    const editor=document.getElementById('caseEditorCard');if(editor)editor.scrollIntoView({behavior:'smooth',block:'start'});
+    const first=document.getElementById('ncWalk');if(first)first.focus();
+    return;
+  }
+  if(act==='gmClearCaseDraft'){
+    resetCaseDraft();saveLocalSession();render(true);
+    const editor=document.getElementById('caseEditorCard');if(editor)editor.scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+  if(act==='gmSaveCaseBtn'){
+    const draft=syncCaseDraftFromDom();
+    const id=(draft.mode==='edit'?draft.originalId:draft.id).trim();
     if(!id){ toast('กรอก Patient ID','err'); return; }
-    const reqTx = [val('ncReq1'), val('ncReq2'), val('ncReq3')].filter(Boolean);
-    await gmAddCase({
-      id: id, canWalk: val('ncWalk'), reqTx: reqTx,
-      timeLimit: Number(val('ncLimit'))||30,
-      primary: val('ncPrimary'), secondary: val('ncSecondary'),
-      dispo: val('ncDispo'), vehicle: val('ncVehicle')||null
-    });
+    const limit=Number(draft.timeLimit);
+    if(!Number.isFinite(limit)||limit<=0){toast('Time Limit ต้องมากกว่า 0 นาที','err');const input=document.getElementById('ncLimit');if(input)input.focus();return;}
+    const reqTx=uniq(draft.reqTx.filter(Boolean));
+    const caseObj={id:id,canWalk:draft.canWalk,reqTx:reqTx,timeLimit:limit,primary:draft.primary,secondary:draft.secondary,dispo:draft.dispo,vehicle:draft.vehicle||null};
+    el.disabled=true;el.textContent='กำลังบันทึก…';
+    const saved=draft.mode==='edit'?await gmUpdateCase(draft.originalId,caseObj):await gmAddCase(caseObj);
+    if(saved){resetCaseDraft();saveLocalSession();render(true);}
+    else{el.disabled=false;el.textContent=draft.mode==='edit'?'💾 บันทึกการแก้ไข':'+ เพิ่มเคส';}
     return;
   }
   if(act==='gmSaveResource'){
@@ -6547,7 +6674,13 @@ function boot(){
     if(!el || el.disabled) return;
     handleClick(el);
   });
+  app.addEventListener('input',function(e){
+    const el=e.target.closest('[data-case-field]');
+    if(el)captureCaseDraftValue(el);
+  });
   app.addEventListener('change', function(e){
+    const caseField=e.target.closest('[data-case-field]');
+    if(caseField)captureCaseDraftValue(caseField);
     const el = e.target.closest('[data-act]');
     if(!el) return;
     handleChange(el);

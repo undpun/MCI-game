@@ -1938,11 +1938,22 @@ function decodeArchiveValue(raw,fallback){
   if(raw==null)return fallback;
   try{return typeof raw==='string'?JSON.parse(raw):raw;}catch(e){return fallback;}
 }
+function decodeArchiveRoot(raw){
+  const decoded=decodeArchiveValue(raw,{}),root=decoded&&typeof decoded==='object'&&!Array.isArray(decoded)?decoded:{};
+  const index=decodeArchiveValue(root.index,{}),data=decodeArchiveValue(root.data,{});
+  return {
+    index:index&&typeof index==='object'&&!Array.isArray(index)?index:{},
+    data:data&&typeof data==='object'&&!Array.isArray(data)?data:{}
+  };
+}
 async function archiveListGet(){
   if(!fbReady)return [];
   try{
-    const snap=await fbDb.ref(DB_ROOT+'/'+ARCHIVE_ROOT+'/index').once('value');
-    const raw=snap.val()||{};
+    // Read the archive parent so saves made by the previous version—where a
+    // root transaction could stringify the whole gameArchives tree—remain
+    // visible and recoverable.
+    const snap=await fbDb.ref(DB_ROOT+'/'+ARCHIVE_ROOT).once('value');
+    const raw=decodeArchiveRoot(snap.val()).index;
     return Object.keys(raw).map(function(id){
       const item=decodeArchiveValue(raw[id],null);
       return item&&typeof item==='object'?Object.assign({id:id},item):null;
@@ -1956,8 +1967,9 @@ async function archiveListGet(){
 async function archiveDataGet(id){
   if(!fbReady)return null;
   try{
-    const snap=await fbDb.ref(DB_ROOT+'/'+ARCHIVE_ROOT+'/data/'+id).once('value');
-    return snap.exists()?decodeArchiveValue(snap.val(),null):null;
+    const snap=await fbDb.ref(DB_ROOT+'/'+ARCHIVE_ROOT).once('value');
+    const raw=decodeArchiveRoot(snap.val()).data[id];
+    return decodeArchiveValue(raw,null);
   }catch(e){
     console.error('archiveDataGet failed',e);
     STATE.fbConnected=false;STATE.fbErrorMsg=(e&&e.message)||String(e);
@@ -1967,10 +1979,14 @@ async function archiveDataGet(id){
 async function archiveDataSet(id,meta,data){
   if(!fbReady)return false;
   try{
-    const updates={};
-    updates['index/'+id]=JSON.stringify(meta);
-    updates['data/'+id]=JSON.stringify(data);
-    await fbDb.ref(DB_ROOT+'/'+ARCHIVE_ROOT).update(updates);
+    const ref=fbDb.ref(DB_ROOT+'/'+ARCHIVE_ROOT),initialSnap=await ref.once('value'),initialRaw=initialSnap.val();
+    const result=await ref.transaction(function(raw){
+      if(raw==null)raw=initialRaw;
+      const archiveRoot=decodeArchiveRoot(raw),index=Object.assign({},archiveRoot.index),savedData=Object.assign({},archiveRoot.data);
+      index[id]=JSON.stringify(meta);savedData[id]=JSON.stringify(data);
+      return {index:index,data:savedData};
+    });
+    if(!result.committed)return false;
     STATE.fbConnected=true;
     return true;
   }catch(e){
@@ -2040,7 +2056,10 @@ async function kvRootTransaction(mutator){
       const next = mutator(decoded);
       if(next==null) return;
       const encoded = {};
-      Object.keys(next).forEach(function(k){ encoded[k]=JSON.stringify(next[k]); });
+      // gameArchives is intentionally stored as a real Firebase object so its
+      // index/data children can be read directly. Older root transactions
+      // stringified it and made saved games appear to disappear after reload.
+      Object.keys(next).forEach(function(k){ encoded[k]=k===ARCHIVE_ROOT?next[k]:JSON.stringify(next[k]); });
       return encoded;
     });
     STATE.fbConnected=true;
@@ -2388,7 +2407,8 @@ function resolveTransits(patients, elapsed){
     if(p.stage!=='TRANSIT' || !p.transit) return p;
     if(patientIsDead(p,elapsed)){
       changed=true;
-      return Object.assign({},p,{stage:p.transit.fromStage||'PRIMARY',transit:null,events:(p.events||[]).concat([{t:elapsed,type:'DEAD_REMAINED_AT '+(p.transit.fromStage||'PRIMARY'),by:'SYSTEM'}])});
+      const caseObj=findCase(STATE.cases,p.id),limit=Number(caseObj&&caseObj.timeLimit),deathAt=Number.isFinite(limit)?Math.min(elapsed,limit):elapsed;
+      return Object.assign({},p,{stage:p.transit.fromStage||'PRIMARY',transit:null,deathTime:deathAt,events:(p.events||[]).concat([{t:deathAt,type:'DEAD_REMAINED_AT '+(p.transit.fromStage||'PRIMARY'),by:'SYSTEM'}])});
     }
     if(elapsed < p.transit.arriveElapsed) return p;
     changed = true;
@@ -2448,7 +2468,7 @@ function computeTxStatus(p, caseObj, elapsed){
   });
   if(required.length===0) return 'STABILIZED';
   if(allFinishedInTime) return 'STABILIZED';
-  if(elapsed>limit) return 'DEAD';
+  if(elapsed>=limit) return 'DEAD';
   if(hasAnyTxInProgress(p,elapsed)) return 'IN_PROGRESS';
   return 'UNASSESSED';
 }
@@ -2458,14 +2478,26 @@ function patientIsDead(p, elapsed){
   }
   return computeTxStatus(p, findCase(STATE.cases,p.id), elapsed)==='DEAD';
 }
+function missingRequiredTreatmentItems(p,caseObj){
+  const limit=Number(caseObj&&caseObj.timeLimit)||999;
+  return ((caseObj&&caseObj.reqTx)||[]).filter(function(item){
+    return !allTreatmentSlots(p).some(function(slot){
+      return slot&&slot.item===item&&(Number(slot.startedAt)+Number(slot.durationSec||0)/60)<=limit;
+    });
+  });
+}
+function treatmentDeadlineLabel(caseObj){
+  const limit=Number(caseObj&&caseObj.timeLimit);
+  return Number.isFinite(limit)?String(round1(limit))+' นาที':'เวลาที่กำหนด';
+}
+function incompleteTreatmentDeathReason(p,caseObj){
+  const missing=missingRequiredTreatmentItems(p,caseObj);
+  return missing.length?'เสียชีวิตเนื่องจากไม่ได้ Tx '+missing.join(', ')+' ภายใน '+treatmentDeadlineLabel(caseObj):'เสียชีวิตเนื่องจากรักษาไม่ทันเวลาที่กำหนด';
+}
 function deathReasonFor(p, elapsed){
   const c=findCase(STATE.cases,p.id);
   if(!c) return 'ไม่พบข้อมูลโจทย์';
-  const missing=(c.reqTx||[]).filter(function(item){
-    const slot=allTreatmentSlots(p).find(function(x){return x&&x.item===item;});
-    return !slot || (slot.startedAt+slot.durationSec/60)>Number(c.timeLimit);
-  });
-  return missing.length ? 'รักษาไม่ครบ/ไม่ทันเวลา: '+missing.join(', ') : 'เกินเวลาที่กำหนด';
+  return incompleteTreatmentDeathReason(p,c);
 }
 function effectiveCanWalk(p){
   const c=findCase(STATE.cases,p.id);
@@ -2543,7 +2575,7 @@ function resolveHospitalPatients(patients,elapsed){
     if(care.transportHarm){
       return Object.assign({},p,{
         stage:'CLOSED',transferStatus:'DEAD_WRONG_VEHICLE',closedReason:'DEAD_WRONG_VEHICLE',
-        hospitalArrivalTime:null,hospitalOutcome:'DEAD',hospitalOutcomeTime:care.outcomeAt,dischargeTime:care.outcomeAt,
+        hospitalArrivalTime:null,hospitalOutcome:'DEAD',hospitalOutcomeTime:care.outcomeAt,deathTime:care.outcomeAt,dischargeTime:care.outcomeAt,
         events:(p.events||[]).concat([{t:care.outcomeAt,type:'DO_HARM_WRONG_VEHICLE',by:'SYSTEM'}])
       });
     }
@@ -2564,7 +2596,8 @@ function resolveHospitalPatients(patients,elapsed){
     return Object.assign({},p,{
       stage:'CLOSED',transferStatus:'DEAD_HOSPITAL_TX_LATE',closedReason:'DEAD_HOSPITAL_TX_LATE',
       hospitalArrivalTime:care.arrivalAt<=care.outcomeAt?care.arrivalAt:null,
-      hospitalOutcome:'DEAD',hospitalOutcomeTime:care.outcomeAt,dischargeTime:care.outcomeAt,
+      hospitalTx:(p.hospitalTx||[]).filter(function(slot){return Number(slot.startedAt)<Number(care.outcomeAt);}),
+      hospitalOutcome:'DEAD',hospitalOutcomeTime:care.outcomeAt,deathTime:care.outcomeAt,dischargeTime:care.outcomeAt,
       events:(p.events||[]).concat(hospitalEvents.filter(function(e){return e.t<=care.outcomeAt;})).concat([{t:care.outcomeAt,type:'HOSPITAL_TREATMENT_LATE',by:'HOSPITAL'}])
     });
   });
@@ -2585,10 +2618,11 @@ function resolveDischargedPatients(patients,elapsed,cases){
     if(p.stage!=='CLOSED'||!p.dischargePendingOutcome)return p;
     const caseObj=findCase(cases||STATE.cases,p.id);
     const limit=Number(caseObj&&caseObj.timeLimit)||999;
-    if(elapsed<=limit)return p;
+    if(elapsed<limit)return p;
     changed=true;
     return Object.assign({},p,{
       closedReason:'DEAD_DISCHARGE_TX_INCOMPLETE',dischargePendingOutcome:false,
+      deathTime:limit,
       events:(p.events||[]).concat([{t:limit,type:'DISCHARGE_TREATMENT_INCOMPLETE',by:'SYSTEM'}])
     });
   });
@@ -4167,6 +4201,7 @@ async function primarySetField(id, field, value){
   await mutatePatients(function(patients){
     const p=patients.find(function(x){return normU(x.id)===normU(id);});
     if(!p)return null;
+    if(patientIsDead(p,elapsed)){toast('ผู้ป่วยเสียชีวิตแล้ว ไม่สามารถทำ Primary Triage เพิ่มได้','err');return null;}
     if(hasAnyTxInProgress(p,elapsed)){toast('ผู้ป่วยกำลังได้รับ Initial Treatment จึงยังทำ Primary Triage ไม่ได้','err');return null;}
     if(!triageHasFreeStaff('PRIMARY',patients,elapsed,STATE.roster)){toast('ไม่มี Staff ว่างใน Primary Triage','err');return null;}
     return patients.map(function(x){
@@ -4213,6 +4248,7 @@ async function secondarySetField(id, field, value){
   await mutatePatients(function(patients){
     const p=patients.find(function(x){return normU(x.id)===normU(id);});
     if(!p)return null;
+    if(patientIsDead(p,elapsed)){toast('ผู้ป่วยเสียชีวิตแล้ว ไม่สามารถทำ Secondary Triage เพิ่มได้','err');return null;}
     if(hasAnyTxInProgress(p,elapsed)){toast('ผู้ป่วยกำลังได้รับ Initial Treatment จึงยังทำ Secondary Triage ไม่ได้','err');return null;}
     if(!triageHasFreeStaff('SECONDARY',patients,elapsed,STATE.roster)){toast('ไม่มี Staff ว่างใน Secondary Triage','err');return null;}
     return patients.map(function(x){
@@ -4448,6 +4484,7 @@ async function txCancelItem(id,slotIndex){
     if(pi<0){fail='ไม่พบผู้ป่วย #'+id;return null;}
     const p=patients[pi];
     if(['PRIMARY','SECONDARY','TX'].indexOf(p.stage)<0){fail='ยกเลิกได้เฉพาะขณะผู้ป่วยยังอยู่ใน Triage หรือ Treatment';return null;}
+    if(patientIsDead(p,elapsed)){fail='ผู้ป่วยเสียชีวิตแล้ว ไม่สามารถเปลี่ยน Treatment ได้';return null;}
     const tx=(p.tx||[]).slice();
     const slot=tx[slotIndex];
     if(!slot){fail='ไม่พบ Treatment ที่ต้องการยกเลิก';return null;}
@@ -4497,6 +4534,10 @@ async function transferAssign(id, field, value){
   if(!canEditLockedPatient(id))return;
   const elapsed=elapsedMinutes(STATE.gc);
   await mutatePatients(function(patients){
+    const selected=patients.find(function(p){return normU(p.id)===normU(id);});
+    if(!selected)return null;
+    if(selected.stage!=='TRANSFER'){toast('ผู้ป่วยไม่ได้อยู่ใน Transfer','err');return null;}
+    if(patientIsDead(selected,elapsed)){toast('ผู้ป่วยเสียชีวิตแล้ว ไม่สามารถเลือกรถหรือโรงพยาบาลได้','err');return null;}
     return patients.map(function(p){
       if(normU(p.id)!==normU(id))return p;
       const patch=mkPatch(field,value);
@@ -6010,7 +6051,11 @@ function gmPatientZoneHtml(p){
   return '<span class="badge neutral">'+esc(p.stage||'—')+'</span>';
 }
 function gmPatientActivityHtml(p,elapsed){
-  if(patientIsDead(p,elapsed)||(p.closedReason&&String(p.closedReason).indexOf('DEAD')===0))return '<span class="badge dead">เสียชีวิต</span>';
+  if(patientIsDead(p,elapsed)||(p.closedReason&&String(p.closedReason).indexOf('DEAD')===0)){
+    const wrongVehicle=String(p.closedReason||'')==='DEAD_WRONG_VEHICLE'||(p.hospitalCare&&p.hospitalCare.transportHarm);
+    const reason=wrongVehicle?'เสียชีวิตเนื่องจากใช้รถไม่เหมาะสม':deathReasonFor(p,elapsed);
+    return '<span class="badge dead">เสียชีวิต</span><div class="hint" style="margin-top:4px;color:var(--red)">'+esc(reason)+'</div>';
+  }
   if(p.stage==='HOSPITAL'&&p.hospitalCare){
     const phase=hospitalCarePhase(p,elapsed);
     if(phase==='IN_TRANSIT'){
@@ -6035,10 +6080,12 @@ function gmPatientActivityHtml(p,elapsed){
   return '—';
 }
 function gmTreatmentHistoryHtml(p,elapsed){
-  const items=allTreatmentSlots(p).map(function(slot){
+  const outcome=reviewOutcome(p,{gc:STATE.gc,cases:STATE.cases}),deathAt=outcome.kind==='dead'?Number(outcome.at):Infinity;
+  const items=allTreatmentSlots(p).filter(function(slot){return Number(slot.startedAt)<deathAt;}).map(function(slot){
     const slotStatus=txSlotStatus(slot,elapsed);
-    const status=slotStatus==='PENDING'?'รอเริ่ม':slotStatus==='IN_PROGRESS'?'กำลังทำ':'เสร็จ';
-    return '<span class="badge '+(status==='เสร็จ'?'ok':'wait')+'">'+esc(slot.item)+' · '+treatmentLocationLabel(slot.location)+' · '+status+'</span>';
+    const interrupted=outcome.kind==='dead'&&(Number(slot.startedAt)+Number(slot.durationSec||0)/60)>deathAt;
+    const status=interrupted?'หยุดเมื่อผู้ป่วยเสียชีวิต':slotStatus==='PENDING'?'รอเริ่ม':slotStatus==='IN_PROGRESS'?'กำลังทำ':'เสร็จ';
+    return '<span class="badge '+(status==='เสร็จ'?'ok':interrupted?'bad':'wait')+'">'+esc(slot.item)+' · '+treatmentLocationLabel(slot.location)+' · '+status+'</span>';
   });
   return items.length?'<div class="tx-history">'+items.join('')+'</div>':'<span class="hint">ยังไม่มี</span>';
 }
@@ -6325,8 +6372,9 @@ function timelineCategory(type){
   if(type.indexOf('DEAD')>-1||type.indexOf('SURVIVED')>-1||type.indexOf('DISCHARGE')>-1)return 'outcome';
   return 'patient';
 }
-function timelineDescription(entry){
-  const type=entry.type||'', p=entry.patient, no=p?'No. '+p.id:'';
+function timelineDescription(entry,cases){
+  const type=entry.type||'', p=entry.patient, no=p?'No. '+p.id:'',caseObj=p?findCase(cases||STATE.cases,p.id):null;
+  const incompleteDeath=p?incompleteTreatmentDeathReason(p,caseObj||{}):'เสียชีวิตเนื่องจากรักษาไม่ทันเวลาที่กำหนด';
   if(type==='GAME_START')return 'เริ่มเกม MCI';
   if(type==='GAME_END')return 'จบเกม MCI';
   if(type==='COMM_MESSAGE'&&entry.communication)return '['+communicationZoneLabel(entry.communication.displayZone||entry.communication.zone)+' ↔ Command] '+entry.communication.text;
@@ -6367,9 +6415,11 @@ function timelineDescription(entry){
   if(type.indexOf('ARRIVE_TREATMENT ')===0)return no+' ถึง Treatment '+type.slice(17);
   if(type==='TRANSFER_ACCEPTED')return no+' ได้รับการส่งต่อสำเร็จ';
   if(type==='SURVIVED_HOSPITAL_TREATMENT')return no+' รักษาที่โรงพยาบาลเสร็จและรอดชีวิต';
-  if(type==='HOSPITAL_TREATMENT_LATE')return no+' ได้รับ Treatment ที่โรงพยาบาลไม่ทันเวลา';
+  if(type==='HOSPITAL_TREATMENT_LATE')return no+' '+incompleteDeath;
   if(type==='DO_HARM_WRONG_VEHICLE')return no+' เกิดผลเสียระหว่างส่งจากการใช้รถผิดประเภท';
-  if(type==='FINAL_DEAD')return 'ผลสุดท้าย '+no+': เสียชีวิต';
+  if(type.indexOf('DEAD_REMAINED_AT ')===0)return no+' '+incompleteDeath+' และค้างที่ '+type.slice(17).replace('TX_','Treatment ');
+  if(type==='DISCHARGE_TREATMENT_INCOMPLETE')return no+' '+incompleteDeath;
+  if(type==='FINAL_DEAD')return 'ผลสุดท้าย '+no+': '+incompleteDeath;
   if(type==='FINAL_SURVIVED')return 'ผลสุดท้าย '+no+': รอดชีวิต / ปิดเคส';
   if(type==='FINAL_OPEN')return 'จบเกมขณะที่ '+no+' ยังไม่สิ้นสุดเคส';
   if(type.indexOf('DISCHARGE')===0)return 'Discharge '+no;
@@ -6381,19 +6431,20 @@ function reviewOutcome(p,ctx){
   const elapsed=reviewElapsed(ctx),reason=String(p&&p.closedReason||''),care=p&&p.hospitalCare,caseObj=reviewFindCase(ctx,p&&p.id),limit=Number(caseObj.timeLimit)||999;
   let kind='open',at=elapsed;
   if(reason.indexOf('DEAD')===0||p.hospitalOutcome==='DEAD'){
-    kind='dead';at=Number(p.hospitalOutcomeTime!=null?p.hospitalOutcomeTime:p.dischargeTime!=null?p.dischargeTime:p.transferTime!=null?p.transferTime:elapsed);
+    kind='dead';at=Number(p.deathTime!=null?p.deathTime:p.hospitalOutcomeTime!=null?p.hospitalOutcomeTime:p.dischargeTime!=null?p.dischargeTime:p.transferTime!=null?p.transferTime:elapsed);
   }else if(care&&care.transportHarm&&elapsed>=Number(care.outcomeAt)){
     kind='dead';at=Number(care.outcomeAt);
   }else{
     const required=caseObj.reqTx||[],completed={};
     allTreatmentSlots(p).forEach(function(slot){if(slot&&Number(slot.startedAt)+Number(slot.durationSec||0)/60<=limit)completed[slot.item]=true;});
-    if(required.some(function(item){return !completed[item];})&&elapsed>limit){kind='dead';at=limit;}
+    if(required.some(function(item){return !completed[item];})&&elapsed>=limit){kind='dead';at=limit;}
     else if(p.hospitalOutcome==='SURVIVED'||reason==='TRANSFER_ACCEPTED'||reason==='TRANSFER_ACCEPTED_HOSPITAL_TX'||(p.stage==='CLOSED'&&reason&&reason!=='DISCHARGE_PENDING_TX_OUTCOME')){
       kind='survived';at=Number(p.hospitalOutcomeTime!=null?p.hospitalOutcomeTime:p.dischargeTime!=null?p.dischargeTime:p.transferTime!=null?p.transferTime:elapsed);
     }
   }
   const label=kind==='dead'?'เสียชีวิต':kind==='survived'?'รอดชีวิต / ปิดเคส':'ยังไม่สิ้นสุดเคส';
-  return {kind:kind,label:label,at:Number.isFinite(at)?at:elapsed};
+  const detail=kind!=='dead'?'':(reason==='DEAD_WRONG_VEHICLE'||(care&&care.transportHarm)?'เสียชีวิตเนื่องจากใช้รถไม่เหมาะสม':incompleteTreatmentDeathReason(p,caseObj));
+  return {kind:kind,label:label,detail:detail,at:Number.isFinite(at)?at:elapsed};
 }
 function reviewClock(t,gc){
   if(!gc||!gc.startTime)return fmtMin(t);
@@ -6482,25 +6533,32 @@ function reviewEventAssessment(entry,ctx){
   if(type==='FINAL_OPEN')return {kind:'neutral',label:'— เคสยังไม่สิ้นสุด'};
   return {kind:'neutral',label:'— เหตุการณ์ประกอบ'};
 }
+function reviewDeathTerminalEvent(type){
+  type=String(type||'');
+  return type==='FINAL_DEAD'||type==='HOSPITAL_TREATMENT_LATE'||type==='DO_HARM_WRONG_VEHICLE'||type==='DISCHARGE_TREATMENT_INCOMPLETE'||type.indexOf('DEAD_REMAINED_AT ')===0;
+}
 function reviewPatientJourney(p,ctx){
-  const elapsed=reviewElapsed(ctx);let seq=0,entries=[];
+  const elapsed=reviewElapsed(ctx),outcome=reviewOutcome(p,ctx),deathAt=outcome.kind==='dead'?Number(outcome.at):Infinity;let seq=0,entries=[];
   (p.events||[]).forEach(function(e){
     if(e.type.indexOf('HOSPITAL_TX_START ')===0||e.type.indexOf('HOSPITAL_TX_DONE ')===0)return;
-    entries.push({t:Number(e.t)||0,type:e.type,by:e.by||'',patient:p,seq:seq++});
+    const eventAt=Number(e.t)||0;
+    if(outcome.kind==='dead'&&(eventAt>deathAt+.0001||(Math.abs(eventAt-deathAt)<=.0001&&!reviewDeathTerminalEvent(e.type))))return;
+    entries.push({t:eventAt,type:e.type,by:e.by||'',patient:p,seq:seq++});
   });
-  if(p.secondaryArrivalTime!=null&&!p.secondaryDirectRegistration&&!entries.some(function(e){return e.type==='ARRIVE_SECONDARY';}))entries.push({t:Number(p.secondaryArrivalTime)||0,type:'ARRIVE_SECONDARY',by:'SYSTEM',patient:p,seq:seq++});
-  if(p.txArrivalTime!=null&&!entries.some(function(e){return e.type.indexOf('ARRIVE_TREATMENT ')===0;}))entries.push({t:Number(p.txArrivalTime)||0,type:'ARRIVE_TREATMENT '+(p.txZone||p.secondary||''),by:'SYSTEM',patient:p,seq:seq++});
-  (p.tx||[]).filter(Boolean).forEach(function(slot){const doneAt=Number(slot.startedAt)+Number(slot.durationSec||0)/60;if(doneAt<=elapsed)entries.push({t:doneAt,type:'TX_DONE '+slot.item,by:slot.staffName||'',patient:p,seq:seq++});});
+  if(p.secondaryArrivalTime!=null&&Number(p.secondaryArrivalTime)<deathAt&&!p.secondaryDirectRegistration&&!entries.some(function(e){return e.type==='ARRIVE_SECONDARY';}))entries.push({t:Number(p.secondaryArrivalTime)||0,type:'ARRIVE_SECONDARY',by:'SYSTEM',patient:p,seq:seq++});
+  if(p.txArrivalTime!=null&&Number(p.txArrivalTime)<deathAt&&!entries.some(function(e){return e.type.indexOf('ARRIVE_TREATMENT ')===0;}))entries.push({t:Number(p.txArrivalTime)||0,type:'ARRIVE_TREATMENT '+(p.txZone||p.secondary||''),by:'SYSTEM',patient:p,seq:seq++});
+  (p.tx||[]).filter(Boolean).forEach(function(slot){const doneAt=Number(slot.startedAt)+Number(slot.durationSec||0)/60;if(doneAt<=elapsed&&doneAt<=deathAt+.0001)entries.push({t:doneAt,type:'TX_DONE '+slot.item,by:slot.staffName||'',patient:p,seq:seq++});});
   (p.hospitalTx||[]).filter(Boolean).forEach(function(slot){
-    if(Number(slot.startedAt)<=elapsed)entries.push({t:Number(slot.startedAt),type:'HOSPITAL_TX_START '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
-    const doneAt=Number(slot.startedAt)+Number(slot.durationSec||0)/60;if(doneAt<=elapsed)entries.push({t:doneAt,type:'HOSPITAL_TX_DONE '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
+    if(Number(slot.startedAt)<=elapsed&&Number(slot.startedAt)<deathAt)entries.push({t:Number(slot.startedAt),type:'HOSPITAL_TX_START '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
+    const doneAt=Number(slot.startedAt)+Number(slot.durationSec||0)/60;if(doneAt<=elapsed&&doneAt<=deathAt+.0001)entries.push({t:doneAt,type:'HOSPITAL_TX_DONE '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
   });
-  const outcome=reviewOutcome(p,ctx),hasTerminal=entries.some(function(e){return e.type.indexOf('DEAD')>-1||e.type.indexOf('SURVIVED')>-1||e.type==='TRANSFER_ACCEPTED'||e.type.indexOf('DISCHARGE')===0||e.type==='DO_HARM_WRONG_VEHICLE'||e.type==='HOSPITAL_TREATMENT_LATE';});
+  const hasTerminal=entries.some(function(e){return outcome.kind==='dead'?reviewDeathTerminalEvent(e.type):(e.type.indexOf('SURVIVED')>-1||e.type==='TRANSFER_ACCEPTED'||(outcome.kind==='survived'&&e.type.indexOf('DISCHARGE')===0));});
   if(!hasTerminal)entries.push({t:outcome.at,type:outcome.kind==='dead'?'FINAL_DEAD':outcome.kind==='survived'?'FINAL_SURVIVED':'FINAL_OPEN',by:'SYSTEM',patient:p,seq:seq++});
   return entries.filter(function(e){return e.t<=elapsed+.0001;}).sort(function(a,b){return a.t-b.t||a.seq-b.seq;});
 }
 function reviewParticipants(p,ctx){
-  const names=reviewPatientJourney(p,ctx).map(function(e){return e.by;}).concat(allTreatmentSlots(p).map(function(slot){return slot&&slot.staffName;})).filter(function(name){return name&&name!=='SYSTEM'&&name!=='HOSPITAL';});
+  const outcome=reviewOutcome(p,ctx),deathAt=outcome.kind==='dead'?Number(outcome.at):Infinity;
+  const names=reviewPatientJourney(p,ctx).map(function(e){return e.by;}).concat(allTreatmentSlots(p).filter(function(slot){return Number(slot.startedAt)<deathAt;}).map(function(slot){return slot&&slot.staffName;})).filter(function(name){return name&&name!=='SYSTEM'&&name!=='HOSPITAL';});
   return uniq(names);
 }
 function reviewContextForUi(review){
@@ -6511,31 +6569,18 @@ function patientReviewOverlayHtml(){
   const review=STATE.ui.patientReview;if(!review)return '';
   const ctx=reviewContextForUi(review),p=(ctx.patients||[]).find(function(x){return normU(x.id)===normU(review.patientId);});if(!p)return '';
   const caseObj=reviewFindCase(ctx,p.id),outcome=reviewOutcome(p,ctx),journey=reviewPatientJourney(p,ctx),participants=reviewParticipants(p,ctx),duration=Math.max(0,outcome.at-Number(p.createdAt||0));
-  const rows=journey.map(function(e){const evaluation=reviewEventAssessment(e,ctx),zone=reviewEventZone(e,p),actor=e.by==='HOSPITAL'?'Hospital Simulation':e.by&&e.by!=='SYSTEM'?e.by:'ระบบ';return '<div class="patient-journey-event" style="--event-color:'+reviewJourneyEventColor(e.type)+'"><div class="patient-journey-time">'+reviewClock(e.t,ctx.gc)+' <span class="hint">(+'+fmtClock(e.t)+')</span></div><div class="patient-journey-desc">'+esc(timelineDescription(e))+'</div><div class="patient-journey-facts"><span class="journey-zone">'+esc(zone)+'</span><span class="patient-journey-by">โดย '+esc(actor)+'</span><span class="journey-eval '+evaluation.kind+'">'+esc(evaluation.label)+'</span></div></div>';}).join('');
+  const rows=journey.map(function(e){const evaluation=reviewEventAssessment(e,ctx),zone=reviewEventZone(e,p),actor=e.by==='HOSPITAL'?'Hospital Simulation':e.by&&e.by!=='SYSTEM'?e.by:'ระบบ';return '<div class="patient-journey-event" style="--event-color:'+reviewJourneyEventColor(e.type)+'"><div class="patient-journey-time">'+reviewClock(e.t,ctx.gc)+' <span class="hint">(+'+fmtClock(e.t)+')</span></div><div class="patient-journey-desc">'+esc(timelineDescription(e,ctx.cases))+'</div><div class="patient-journey-facts"><span class="journey-zone">'+esc(zone)+'</span><span class="patient-journey-by">โดย '+esc(actor)+'</span><span class="journey-eval '+evaluation.kind+'">'+esc(evaluation.label)+'</span></div></div>';}).join('');
   return '<div class="patient-review-overlay"><div class="patient-review-dialog" role="dialog" aria-modal="true" aria-label="Patient Journey No. '+esc(p.id)+'"><div class="patient-review-top"><div><div class="eyebrow">PATIENT JOURNEY'+(review.source==='archive'?' · SAVED GAME':' · LIVE')+'</div><b>ทบทวนรายผู้ป่วย</b></div><button class="btn sm ghost" data-act="patientReviewClose">✕ ปิด</button></div><div class="patient-review-body">'
     +'<div class="patient-review-hero"><div><div class="eyebrow">PATIENT RECORD</div><h2>Patient No. '+esc(p.id)+'</h2><div class="hint">'+esc(review.source==='archive'?(ctx.name||'เกมที่บันทึกไว้'):'เกมปัจจุบัน')+'</div></div><div class="patient-review-outcome '+outcome.kind+'">'+esc(outcome.label)+'</div></div>'
-    +'<div class="patient-summary-grid"><div class="patient-summary-item"><span class="label">Diagnosis</span><div class="patient-summary-value">'+esc(p.dx||'ยังไม่ได้ระบุ')+'</div></div><div class="patient-summary-item"><span class="label">Triage ที่ถูกต้อง</span><div class="patient-summary-value">Primary '+triageBadge(caseObj.primary)+' · Secondary '+triageBadge(caseObj.secondary)+'</div></div><div class="patient-summary-item"><span class="label">ระยะเวลาของเคส</span><div class="patient-summary-value">'+fmtClock(duration)+' <span class="hint">พบเมื่อ '+reviewClock(Number(p.createdAt)||0,ctx.gc)+'</span></div></div><div class="patient-summary-item"><span class="label">ผลลัพธ์สุดท้าย</span><div class="patient-summary-value">'+esc(outcome.label)+' · '+reviewClock(outcome.at,ctx.gc)+'</div></div><div class="patient-summary-item" style="grid-column:span 2"><span class="label">ผู้เล่นที่เกี่ยวข้อง</span><div class="patient-summary-value">'+(participants.length?participants.map(esc).join(' · '):'ยังไม่มีผู้ดำเนินการ')+'</div></div></div>'
+    +'<div class="patient-summary-grid"><div class="patient-summary-item"><span class="label">Diagnosis</span><div class="patient-summary-value">'+esc(p.dx||'ยังไม่ได้ระบุ')+'</div></div><div class="patient-summary-item"><span class="label">Triage ที่ถูกต้อง</span><div class="patient-summary-value">Primary '+triageBadge(caseObj.primary)+' · Secondary '+triageBadge(caseObj.secondary)+'</div></div><div class="patient-summary-item"><span class="label">ระยะเวลาของเคส</span><div class="patient-summary-value">'+fmtClock(duration)+' <span class="hint">พบเมื่อ '+reviewClock(Number(p.createdAt)||0,ctx.gc)+'</span></div></div><div class="patient-summary-item"><span class="label">ผลลัพธ์สุดท้าย</span><div class="patient-summary-value">'+esc(outcome.label)+' · '+reviewClock(outcome.at,ctx.gc)+(outcome.detail?'<div class="hint" style="margin-top:5px;color:var(--red)">'+esc(outcome.detail)+'</div>':'')+'</div></div><div class="patient-summary-item" style="grid-column:span 2"><span class="label">ผู้เล่นที่เกี่ยวข้อง</span><div class="patient-summary-value">'+(participants.length?participants.map(esc).join(' · '):'ยังไม่มีผู้ดำเนินการ')+'</div></div></div>'
     +'<div class="flexrow" style="justify-content:space-between;margin-bottom:13px"><div><h3 style="margin-bottom:3px">Timeline รายผู้ป่วย</h3><div class="hint">เวลา · Zone · สิ่งที่ทำ · ผู้ดำเนินการ · ผลประเมินถูก/ผิด · '+journey.length+' เหตุการณ์</div></div></div><div class="patient-journey">'+(rows||'<div class="zone-empty">ยังไม่มี Timeline</div>')+'</div></div></div></div>';
 }
 function buildMasterTimeline(elapsed){
   let seq=0, entries=[];
   if(STATE.gc.startTime)entries.push({t:0,type:'GAME_START',by:STATE.gc.startedBy||'GM',seq:seq++});
   (STATE.gc.operationsLog||[]).forEach(function(e){entries.push({t:Number(e.t)||0,type:e.type,by:e.by||'',seq:seq++});});
-  STATE.patients.forEach(function(p){
-    (p.events||[]).forEach(function(e){
-      if(e.type.indexOf('HOSPITAL_TX_START ')===0||e.type.indexOf('HOSPITAL_TX_DONE ')===0)return;
-      entries.push({t:Number(e.t)||0,type:e.type,by:e.by||'',patient:p,seq:seq++});
-    });
-    (p.tx||[]).filter(Boolean).forEach(function(slot){
-      const doneAt=slot.startedAt+slot.durationSec/60;
-      if(doneAt<=elapsed)entries.push({t:doneAt,type:'TX_DONE '+slot.item,by:slot.staffName||'',patient:p,seq:seq++});
-    });
-    (p.hospitalTx||[]).filter(Boolean).forEach(function(slot){
-      if(slot.startedAt<=elapsed)entries.push({t:slot.startedAt,type:'HOSPITAL_TX_START '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
-      const doneAt=slot.startedAt+slot.durationSec/60;
-      if(doneAt<=elapsed)entries.push({t:doneAt,type:'HOSPITAL_TX_DONE '+slot.item,by:'HOSPITAL',patient:p,seq:seq++});
-    });
-  });
+  const reviewCtx={gc:STATE.gc,cases:STATE.cases,patients:STATE.patients};
+  STATE.patients.forEach(function(p){reviewPatientJourney(p,reviewCtx).forEach(function(e){entries.push({t:e.t,type:e.type,by:e.by||'',patient:p,seq:seq++});});});
   communicationRawMessages().forEach(function(msg){entries.push({t:Number(msg.t)||0,type:'COMM_MESSAGE',by:msg.by||'',communication:Object.assign({},msg,{displayZone:transportCombined()&&(msg.zone==='LOADING'||msg.zone==='PARKING')?'LOADING_PARKING':msg.zone}),seq:seq++});});
   if(STATE.gc.status==='ENDED'&&STATE.gc.endedElapsed!=null)entries.push({t:Number(STATE.gc.endedElapsed)||0,type:'GAME_END',by:STATE.gc.endedBy||'SYSTEM',seq:seq++});
   return entries.sort(function(a,b){return a.t-b.t||a.seq-b.seq;});
@@ -6551,16 +6596,25 @@ function triageDecisionResult(guess,answer){
   if(g==null||a==null)return 'WRONG';
   return g>a?'OVER':'UNDER';
 }
-function latestEventByPrefix(p,prefixes){
-  return (p.events||[]).filter(function(e){return prefixes.some(function(prefix){return e.type.indexOf(prefix)===0;});}).sort(function(a,b){return b.t-a.t;})[0]||null;
+function latestEventByPrefix(p,prefixes,before){
+  return (p.events||[]).filter(function(e){return (before==null||Number(e.t)<Number(before))&&prefixes.some(function(prefix){return e.type.indexOf(prefix)===0;});}).sort(function(a,b){return b.t-a.t;})[0]||null;
 }
 function debriefTriageRecords(field){
   const upper=field==='primary'?'PRIMARY':'SECONDARY';
-  return STATE.patients.filter(function(p){return !!p[field];}).map(function(p){
-    const caseObj=findCase(STATE.cases,p.id)||{};
-    const event=latestEventByPrefix(p,[upper+'_CLASSIFY ',upper+'_AUTO_',upper+'_CORRECTED_'])||latestEventByPrefix(p,[upper+'_SECONDARY',upper+'_TX',upper+'_DISCHARGE']);
-    return {patient:p,guess:p[field],answer:caseObj[field],result:triageDecisionResult(p[field],caseObj[field]),by:event&&event.by||'—'};
-  });
+  return STATE.patients.map(function(p){
+    const caseObj=findCase(STATE.cases,p.id)||{},outcome=reviewOutcome(p,{gc:STATE.gc,cases:STATE.cases}),before=outcome.kind==='dead'?outcome.at:null;
+    const modernPrefixes=field==='primary'?['PRIMARY_CLASSIFY ','PRIMARY_AUTO_GREEN','PRIMARY_CORRECTED_AT_SECONDARY ']:['SECONDARY_CLASSIFY '];
+    const modern=latestEventByPrefix(p,modernPrefixes,before),hasModern=(p.events||[]).some(function(e){return modernPrefixes.some(function(prefix){return e.type.indexOf(prefix)===0;});});
+    const legacy=hasModern?null:latestEventByPrefix(p,field==='primary'?['PRIMARY_SECONDARY','PRIMARY_DISCHARGE']:['SECONDARY_TX','SECONDARY_DISCHARGE'],before);
+    const event=modern||legacy;if(!event)return null;
+    let guess=p[field];
+    if(event.type.indexOf('PRIMARY_CLASSIFY ')===0)guess=event.type.slice(17);
+    else if(event.type==='PRIMARY_AUTO_GREEN')guess='GREEN';
+    else if(event.type.indexOf('PRIMARY_CORRECTED_AT_SECONDARY ')===0)guess=event.type.slice(31);
+    else if(event.type.indexOf('SECONDARY_CLASSIFY ')===0)guess=event.type.slice(19);
+    if(!guess)return null;
+    return {patient:p,guess:guess,answer:caseObj[field],result:triageDecisionResult(guess,caseObj[field]),by:event.by||'—'};
+  }).filter(Boolean);
 }
 function treatmentItemFromEvent(type){
   if(type.indexOf('TRIAGE_TX_START ')===0)return type.split(' ').slice(2).join(' ');
@@ -6570,10 +6624,10 @@ function treatmentItemFromEvent(type){
 function debriefTreatmentRecords(){
   const rows=[];
   STATE.patients.forEach(function(p){
-    const required=(findCase(STATE.cases,p.id)||{}).reqTx||[];
+    const required=(findCase(STATE.cases,p.id)||{}).reqTx||[],outcome=reviewOutcome(p,{gc:STATE.gc,cases:STATE.cases}),before=outcome.kind==='dead'?outcome.at:Infinity;
     (p.events||[]).forEach(function(e){
       const item=treatmentItemFromEvent(e.type);
-      if(item)rows.push({patient:p,item:item,appropriate:required.indexOf(item)>-1,by:e.by||'—'});
+      if(item&&Number(e.t)<before)rows.push({patient:p,item:item,appropriate:required.indexOf(item)>-1,by:e.by||'—'});
     });
   });
   return rows;
@@ -6584,7 +6638,7 @@ function dispatchedVehicleFromType(type){
 }
 function debriefVehicleRecords(){
   return STATE.patients.map(function(p){
-    const event=latestEventByPrefix(p,['DISPATCH ']);
+    const outcome=reviewOutcome(p,{gc:STATE.gc,cases:STATE.cases}),before=outcome.kind==='dead'?outcome.at:null,event=latestEventByPrefix(p,['DISPATCH '],before);
     if(!event)return null;
     const vehicle=dispatchedVehicleFromType(event.type)||p.vehicle||'';
     const required=requiredVehicleFor(findCase(STATE.cases,p.id));
@@ -6975,6 +7029,9 @@ async function handleClick(el){
     const id=normU(el.dataset.pid),ids=(STATE.ui.transfer.patientIds||[]).slice(),i=ids.indexOf(id);
     if(i>-1){ids.splice(i,1);await releasePatientLocks([id]);}
     else{
+      const patient=STATE.patients.find(function(p){return normU(p.id)===id;});
+      if(!patient||patient.stage!=='TRANSFER'){toast('ผู้ป่วยไม่ได้อยู่ใน Transfer แล้ว','err');return;}
+      if(patientIsDead(patient,elapsedMinutes(STATE.gc))){toast('ผู้ป่วยเสียชีวิตแล้ว ไม่สามารถนำขึ้นรถได้','err');return;}
       if(!await claimPatientLock(id,'TRANSFER'))return;
       ids.push(id);
     }
